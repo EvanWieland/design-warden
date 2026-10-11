@@ -1,0 +1,47 @@
+# The CI checks on macOS. Run by hand (Actions > macOS > Run workflow): macOS minutes cost ten times
+# Linux minutes on private repositories. No secrets are used.
+name: macOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Install Chromium for capture and browser tests
+        run: pnpm exec playwright install chromium
+
+      - name: Unit and integration tests (scenarios, benchmark, visual)
+        run: pnpm test
+
+      - name: Browser tests (inspector and demo)
+        run: pnpm test:e2e
+
+      - name: The demo stays compliant with its own policy
+        run: pnpm check:demo
+
+      - name: Deterministic benchmark
+        run: pnpm eval
+
+      - name: npm packages build, pack, install into a fresh project and run
+        run: pnpm test:pack

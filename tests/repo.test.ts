@@ -48,7 +48,7 @@ describe('repository invariants', () => {
 
   // Tags can be moved; a full commit SHA cannot. The comment keeps the version readable for updates.
   it('pins every GitHub Action, in the workflows and the docs, to a full commit SHA with its version in a comment', () => {
-    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
+    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
     const unpinned = files.flatMap((f) =>
       read(f)
         .split('\n')
@@ -60,7 +60,7 @@ describe('repository invariants', () => {
 
   // `-latest` labels move to a new OS on GitHub's schedule (ubuntu-latest → 26.04 from 2026-10-19), changing CI underneath us.
   it('pins every runner image to an OS version, in the workflows and the docs', () => {
-    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
+    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
     const floating = files.flatMap((f) => (read(f).match(/^.*runs-on:.*-latest.*$/gm) ?? []).map((line) => `${f}: ${line.trim()}`));
     expect(floating).toEqual([]);
   });
