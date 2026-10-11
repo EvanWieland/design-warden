@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Pull-request comments. `design-warden comment <report.json>…` renders saved JSON reports as one markdown comment, and the example workflow's new `comment` job keeps one comment per pull request up to date. It is the only job with write access (`pull-requests: write`). It checks out the base branch only and treats the reports as data. The markdown renderer now escapes or type-checks every report field, because the visual job builds pull-request code and its report may be forged.
 - `no-important` check (`styles/no-important` in the demo policy): `!important` in every CSS source: CSS and SCSS files, Vue and Svelte `<style>` blocks, static `style` attributes and CSS-in-JS templates.
 - `typography/scale` rule in the demo policy: font sizes must use `--font-size-*` tokens. It reuses `spacing-scale` with other options.
 - `spacing-scale` option `units` (any of `px`, `rem`, `em`; default all three). The demo's typography rule leaves out `em`, which is relative to the parent's font size and was suggested a token as if it were `rem`.

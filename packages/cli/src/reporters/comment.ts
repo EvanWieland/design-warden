@@ -1,0 +1,43 @@
+import type { Report } from '@design-warden/core';
+import { UsageError } from '../analyze.ts';
+import { renderMarkdown } from './markdown.ts';
+
+/** First line of the comment; the workflow updates the comment that starts with it instead of adding one per push. */
+export const COMMENT_MARKER = '<!-- design-warden -->';
+/** GitHub's comment limit, minus room for the footer the workflow appends. */
+const MAX_LENGTH = 65_536 - 1_000;
+
+/**
+ * A saved JSON report, checked for the shape the markdown renderer reads. Reports can come from
+ * other CI jobs, including one that builds pull-request code, so they are data: the renderer escapes
+ * every field, and this only rejects what is not a report at all.
+ */
+export function parseReport(text: string, file: string): Report {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (e) {
+    throw new UsageError(`${file} is not valid JSON (${(e as Error).message})`);
+  }
+  const r = value as Record<string, unknown> | null;
+  if (typeof r !== 'object' || r === null || Array.isArray(r)) throw new UsageError(`${file} does not contain a JSON object`);
+  if (r.reportVersion !== 1) throw new UsageError(`${file} is not a Design Warden report: expected "reportVersion": 1, found ${JSON.stringify(r.reportVersion) ?? 'none'}`);
+  const isObject = (x: unknown) => typeof x === 'object' && x !== null && !Array.isArray(x);
+  for (const key of ['findings', 'engines']) {
+    if (!Array.isArray(r[key]) || !(r[key] as unknown[]).every(isObject)) throw new UsageError(`${file} is not a Design Warden report: "${key}" must be an array of objects`);
+  }
+  for (const key of ['summary', 'policy', 'target']) {
+    if (!isObject(r[key])) throw new UsageError(`${file} is not a Design Warden report: "${key}" must be an object`);
+  }
+  return value as Report;
+}
+
+/** One pull-request comment from saved reports, in the order given, with fewer table rows per report until it fits. */
+export function renderComment(reports: Report[]): string {
+  let body = '';
+  for (const rows of [50, 20, 10, 5, 0]) {
+    body = `${COMMENT_MARKER}\n${reports.map((r) => renderMarkdown(r, rows)).join('\n\n---\n\n')}`;
+    if (body.length <= MAX_LENGTH) break;
+  }
+  return body;
+}

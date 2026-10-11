@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { main } from '../src/index.ts';
 import { policyChangeNotes } from '../src/policy-diff.ts';
 import { renderGitlab } from '../src/reporters/gitlab.ts';
+import { renderMarkdown } from '../src/reporters/markdown.ts';
 import { renderSarif } from '../src/reporters/sarif.ts';
 import { cleanup, commitAll, makeProject, TEST_POLICY, writeFiles } from '../../source-analysis/test/helpers.ts';
 
@@ -242,6 +243,63 @@ describe('report formats and scopes', () => {
     writeFiles(root, { 'src/app/a.css': '.old { color: #123456; }\n.new { color: var(--color-text); }\n' });
     expect((await cli('check', '--policy', policyPath, '--base', 'main')).code).toBe(0); // old line is pre-existing
     expect((await cli('check', '--policy', policyPath, '--base', 'main', '--scope', 'changed-files')).code).toBe(1);
+  });
+});
+
+describe('pull-request comments', () => {
+  const failingReport = async () => JSON.parse((await cli('check', '--policy', project({ 'src/app/a.css': '.a { padding: 13px; }' }).policyPath, '--format', 'json')).out);
+  const save = (report: unknown) => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dw-comment-')), 'report.json');
+    fs.writeFileSync(file, typeof report === 'string' ? report : JSON.stringify(report));
+    return file;
+  };
+
+  // The comment job renders reports from other jobs; the visual job builds pull-request code, so its report may be forged.
+  it('renders a forged report without letting any field add links, images or HTML', async () => {
+    const report = await failingReport();
+    report.outcome = 'x](https://evil.example/a)';
+    report.target.only = '<img src=x onerror=alert(1)>';
+    report.summary.byOutcome.fail = '[a](https://evil.example/b)';
+    report.findings[0].ruleId = 'r`](https://evil.example/c) <img src=x>';
+    report.findings[0].outcome = '<b>bold</b>';
+    report.engines[0].engine = '[e](https://evil.example/d)';
+    report.engines[0].status = '<script>alert(1)</script>';
+    report.engines[0].durationMs = '![i](https://evil.example/e.png)';
+    const md = renderMarkdown(report);
+    // Escaped text (`\<img`, `\]\(`) renders literally. Only the renderer's own tags may stay unescaped.
+    expect(md.match(/(?<!\\)<(?!br>|details>|\/details>|summary>|\/summary>)/g)).toBeNull();
+    expect(md).not.toMatch(/(?<!\\)\]\(/);
+    expect(md).not.toMatch(/https?:\/\//); // md() breaks `://`, so nothing autolinks
+    expect(md).toContain('\\<img src=x');
+  });
+
+  it('combines saved reports into one comment with a stable marker, in the order given', async () => {
+    const check = await failingReport();
+    const visual = { ...structuredClone(check), outcome: 'review', target: { ...check.target, only: 'visual' } };
+    const r = await cli('comment', save(check), save(visual));
+    expect(r.code).toBe(0);
+    expect(r.out.startsWith('<!-- design-warden -->\n')).toBe(true);
+    expect(r.out.indexOf('## Design Warden: ❌ Fail')).toBeGreaterThan(0);
+    expect(r.out.indexOf('## Design Warden (visual only): 🟡 Review requested')).toBeGreaterThan(r.out.indexOf('## Design Warden: ❌ Fail'));
+  });
+
+  it('rejects a file that is not a Design Warden report, naming it (exit 2)', async () => {
+    const notJson = save('{oops');
+    const other = save({ reportVersion: 2, findings: [], engines: [] });
+    expect(await cli('comment', notJson)).toMatchObject({ code: 2, err: expect.stringContaining(notJson) });
+    expect(await cli('comment', other)).toMatchObject({ code: 2, err: expect.stringContaining('"reportVersion": 1') });
+    expect((await cli('comment')).code).toBe(2);
+  });
+
+  it('stays within the 65,536 characters GitHub allows in a comment', async () => {
+    const report = await failingReport();
+    const finding = report.findings[0];
+    report.findings = Array.from({ length: 200 }, (_, i) => ({ ...finding, id: `f${i}`, message: `long ${i} `.repeat(60), suggestion: 'fix '.repeat(120) }));
+    const file = save(report);
+    const r = await cli('comment', file, file, file);
+    expect(r.code).toBe(0);
+    expect(r.out.length).toBeLessThanOrEqual(65_536);
+    expect(r.out).toContain('more in the JSON report');
   });
 });
 

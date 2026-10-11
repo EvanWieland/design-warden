@@ -153,10 +153,11 @@ Benchmark baseline (141 labelled findings, including known traps and known limit
 | Deterministic check | `contents: read`, no secrets | Yes |
 | Visual diff in the pinned Playwright container (`--only visual`) | `contents: read`, no secrets | Review only |
 | AI review (`--only semantic`): treats the PR as data, key on one step | One secret | Review only |
+| Pull-request comment: one comment, updated on every push | `pull-requests: write`, no secrets; base branch only | No |
 
 Every job runs Design Warden and loads the policy from the base branch, so a pull request cannot change the tool or the rules that judge it.
 
-`--format github` emits ranked, capped annotations, a job summary and step outputs. `--format sarif` writes SARIF 2.1.0 for GitHub code scanning and other SARIF viewers, and `--format gitlab` a GitLab Code Quality report. See [docs/ci-integration.md](docs/ci-integration.md).
+`--format github` emits ranked, capped annotations, a job summary and step outputs, and `design-warden comment` turns the saved reports into the pull-request comment. `--format sarif` writes SARIF 2.1.0 for GitHub code scanning and other SARIF viewers, and `--format gitlab` a GitLab Code Quality report. See [docs/ci-integration.md](docs/ci-integration.md).
 
 ## Security
 
@@ -182,7 +183,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Playwright capture, pixel diff, region localization (same-machine base/head or a committed baseline), axe-core accessibility checks (review only) | Mapping regions to source files |
 | Provenance (composition and tree shape) | Embeddings |
 | AI review: Anthropic SDK, OpenAI-compatible (incl. Ollama), replay; verification | Live-model evaluation results; other providers |
-| Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs | PR comments |
+| Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs, pull-request comment | Posting the comment from CI systems other than GitHub Actions (`design-warden comment` prints the markdown) |
 | Runs from source on Node ≥ 24.11; npm packages build to `dist/` and are tested by packing and installing them | Publishing to npm (the packages are still `private`); Node versions other than 24 |
 
 The tool was developed on Windows 11. CI passes every step on Ubuntu, and the pull-request workflow's check and visual jobs ran as designed on GitHub; macOS is untested.

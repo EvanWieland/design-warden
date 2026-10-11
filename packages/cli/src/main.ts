@@ -7,6 +7,7 @@ import { anthropicProvider, openAiCompatibleProvider, replayProvider, type Seman
 import { VisualError } from '@design-warden/visual-analysis';
 import { accessibilityCapture, ALL_CHECKS, analyze, UsageError, VERSION, type AnalyzeOptions } from './analyze.ts';
 import { testPolicyExamples } from './policy-test.ts';
+import { parseReport, renderComment } from './reporters/comment.ts';
 import { emitGithub } from './reporters/github.ts';
 import { renderGitlab } from './reporters/gitlab.ts';
 import { renderMarkdown } from './reporters/markdown.ts';
@@ -20,6 +21,7 @@ Usage:
   design-warden capture [options]         Capture screenshots of the policy's routes and states
   design-warden policy validate|test|schema [--policy <file>]
   design-warden checks                    List the built-in checks
+  design-warden comment <report.json>...  Render saved JSON reports as one pull-request comment (markdown)
 
 check options:
   --policy <file>            Policy file (default: design-warden.policy.json)
@@ -69,6 +71,11 @@ export async function main(argv: string[], out: (s: string) => void = (s) => pro
     if (command === 'check') return await check(rest, out, err);
     if (command === 'capture') return await capture(rest, out);
     if (command === 'policy') return await policy(rest, out);
+    if (command === 'comment') {
+      if (rest.length === 0) throw new UsageError('usage: design-warden comment <report.json>...');
+      out(renderComment(rest.map((file) => parseReport(readText(file), file))));
+      return 0;
+    }
     if (command === 'checks') {
       for (const c of ALL_CHECKS) out(`${c.id.padEnd(22)} ${c.engine.padEnd(7)} ${c.description}`);
       return 0;
@@ -259,4 +266,12 @@ async function policy(argv: string[], out: (s: string) => void): Promise<number>
 function oneOf(value: string | undefined, allowed: string[], flag: string): string {
   if (value === undefined || !allowed.includes(value)) throw new UsageError(`${flag} must be one of: ${allowed.join(', ')}`);
   return value;
+}
+
+function readText(file: string): string {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    throw new UsageError(`cannot read ${file}: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
+  }
 }
