@@ -26,6 +26,8 @@ pnpm design-warden check --policy … --base origin/main --semantic openai-compa
 
 Ollama ignores `strict` in JSON-schema mode, so local validation is what keeps the output well-formed ([research](research/ai-review.md)).
 
+**Other services.** A hosted service that documents an OpenAI-compatible chat-completions endpoint with JSON-schema output is used the same way: set `DESIGN_WARDEN_OPENAI_BASE_URL` and the key. Examples are Azure OpenAI's v1 endpoint, Google's OpenAI-compatible Gemini endpoint and OpenRouter. **None of them was tested here.** Services differ in which JSON-schema keywords they honour under `strict` (open question 4), so local validation decides what counts, as with Ollama. A provider without such an endpoint needs an adapter in `packages/semantic-review/src/providers/`, the only code that calls model providers.
+
 ## What is sent
 
 The data sent, all of it recorded in `report.semantic.dataSent`:

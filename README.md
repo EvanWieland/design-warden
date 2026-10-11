@@ -181,8 +181,8 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Plain CSS + React checks (9) for TSX and JS/JSX, Tailwind arbitrary values and palette color classes, CSS-in-JS templates and object styles (MUI `sx` included), SCSS, Vue (globally registered components included) and Svelte components, CSS and DTCG token sources, policy schema and validation, exceptions, executable rule examples | Vue components registered by a plugin (`app.use`) |
 | Git change sets, directory comparison without git history (`--base-dir`, renames detected), changed-line scoping, policy from base ref | Copy detection (a copied file counts as new) |
 | Playwright capture, pixel diff, region localization with the stylesheet rules that likely style each region (heuristic), same-machine base/head or a committed baseline, axe-core accessibility checks (review only) | Mapping a region to the component that rendered it (it would need source maps or build instrumentation) |
-| Provenance (composition and tree shape) | Embeddings |
-| AI review: Anthropic SDK, OpenAI-compatible (incl. Ollama), replay; verification | Live-model evaluation results; other providers |
+| Provenance (composition and tree shape) | Embeddings are ruled out ([ADR 0009](docs/decisions/0009-pattern-provenance.md)) unless structural provenance proves insufficient on real repositories |
+| AI review: Anthropic SDK, OpenAI-compatible (Ollama, vLLM, LM Studio, and hosted services with that API, untested), replay; verification | Live-model evaluation results (not run, by the requester's choice); adapters for providers without an OpenAI-compatible API |
 | Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs, pull-request comment | Posting the comment from CI systems other than GitHub Actions (`design-warden comment` prints the markdown) |
 | Runs from source on Node ≥ 24.11; npm packages build to `dist/` and are tested by packing and installing them | Publishing to npm (the packages are still `private`); Node versions other than 24 |
 
