@@ -1,0 +1,11 @@
+# What judges a pull request needs its owner's review: the workflows that run Design Warden, the policies, the
+# design system and its guidance, and the tool itself (docs/ci-integration.md, "Trust model in CI").
+# GitHub enforces this only through a branch ruleset that requires code-owner review. Rulesets for private
+# repositories need a paid plan, so on this repository's current plan the file documents ownership only.
+/.github/                                @EvanWieland
+/examples/github-actions/                @EvanWieland
+/examples/policy/                        @EvanWieland
+/apps/demo/design-warden.policy.json     @EvanWieland
+/apps/demo/src/design-system/            @EvanWieland
+/apps/demo/.claude/skills/               @EvanWieland
+/packages/                               @EvanWieland

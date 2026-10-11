@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- `.github/CODEOWNERS` for what judges a pull request (workflows, policies, the design system and its guidance, the tool). ci-integration.md suggests a ruleset to enforce it.
 - Visual changes name their likely source. Each changed screen's finding lists up to three stylesheet rules whose selectors use the class of the largest change's element, changed files first, as code evidence. It is labelled a heuristic. The CLI passes `compareCaptures` a lookup from the source engine (`styledBy`), so the visual engine still does not depend on source analysis.
 - Rename detection for `--base-dir`. A deleted and an added file with identical content, or with at least 50% of their lines in common and the same extension, pair as a rename, so moved code keeps its findings pre-existing and provenance reads the old version.
 - Globally registered Vue components. `app.component('AcmeBadge', Badge)`, `Vue.component(…)` and chained `createApp(App).component(…)` registrations of imported components are read project-wide. Template tags without a local import resolve against them, in both spellings, so prop contracts and provenance apply. A local import wins, as in Vue.
