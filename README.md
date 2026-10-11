@@ -184,7 +184,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Provenance (composition and tree shape) | Embeddings are ruled out ([ADR 0009](docs/decisions/0009-pattern-provenance.md)) unless structural provenance proves insufficient on real repositories |
 | AI review: Anthropic SDK, OpenAI-compatible (Ollama, vLLM, LM Studio, and hosted services with that API, untested), replay; verification | Live-model evaluation results (not run, by the requester's choice); adapters for providers without an OpenAI-compatible API |
 | Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs, pull-request comment | Posting the comment from CI systems other than GitHub Actions (`design-warden comment` prints the markdown) |
-| Runs from source on Node ≥ 24.11; npm packages build to `dist/` and are tested by packing and installing them | Publishing to npm (the packages are still `private`); Node versions other than 24 |
+| Runs from source on Node ≥ 24.11; npm packages build to `dist/`, run on Node 22.18+ or 24.11+, and are tested by packing and installing them (on Node 22 and 24 in CI) | Publishing to npm (the packages are still `private`) |
 
 The tool was developed on Windows 11. CI passes every step on Ubuntu, and the pull-request workflow's check and visual jobs ran as designed on GitHub; macOS is untested.
 

@@ -3,7 +3,7 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | `pnpm: command not found` | pnpm is not on PATH | `corepack enable`, or prefix commands with `corepack pnpm` |
-| `ERR_UNKNOWN_FILE_EXTENSION ".ts"` or syntax errors when running the CLI | Node older than 24.11 (no built-in type stripping, or Babel 8 needs ≥ 24.11) | Use Node 24.11+ (`node --version`) |
+| `ERR_UNKNOWN_FILE_EXTENSION ".ts"` or syntax errors when running the CLI | From this repository: Node older than 24.11 (development needs it). From npm: Node older than 22.18, or 23.x / 24.0–24.10, outside Babel 8's range | Use Node 24.11+ for the repository, 22.18+ or 24.11+ for the npm packages (`node --version`) |
 | `pnpm install` fails about a version "published less than … ago" | `minimumReleaseAge` (1 day) blocks just-published versions | Wait, or pin the previous version; do not lower the setting casually |
 | `pnpm install` fails with unreviewed build scripts | `strictDepBuilds` | Approve the package in `allowBuilds` in `pnpm-workspace.yaml` after reviewing its script |
 | `design-warden: policy failed validation:` | Schema problem, missing referenced file, unknown check, invalid option | Each problem is listed with its path; fix and re-run `design-warden policy validate` |
