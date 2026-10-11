@@ -1,6 +1,7 @@
 import { Badge, Card, DataTable, EmptyState, Link, PageHeader, Stack, StatCard, type DataTableColumn } from '../design-system';
 import { formatCurrency, orderStatuses, orders, type Order } from '../data/orders';
 import { PartnerPromo } from '../legacy/PartnerPromo';
+import './OverviewPage.css';
 
 const columns: DataTableColumn<Order>[] = [
   { key: 'id', header: 'Order' },
@@ -23,6 +24,7 @@ export function OverviewPage() {
         <StatCard label="Late shipments" value="7" change="−2" trend="down" />
         <StatCard label="Return rate" value="2.4%" trend="flat" />
       </Stack>
+      <p className="overview-page__late-note">7 shipments are late. Contact the carriers today.</p>
       <Card title="Recent orders" actions={<Link to="/orders">View all orders</Link>}>
         <DataTable
           caption="Recent orders"
