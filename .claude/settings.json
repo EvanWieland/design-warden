@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(corepack pnpm typecheck*)",
+      "Bash(corepack pnpm test*)",
+      "Bash(corepack pnpm eval*)",
+      "Bash(corepack pnpm scenario *)",
+      "Bash(corepack pnpm design-warden *)",
+      "Bash(corepack pnpm check:demo*)",
+      "Bash(pnpm typecheck*)",
+      "Bash(pnpm test*)",
+      "Bash(pnpm eval*)",
+      "Bash(pnpm scenario *)",
+      "Bash(pnpm design-warden *)",
+      "Bash(pnpm check:demo*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ],
+    "deny": ["Read(.env)", "Read(.env.*)", "Read(**/.env)", "Read(**/.env.*)"]
+  }
+}

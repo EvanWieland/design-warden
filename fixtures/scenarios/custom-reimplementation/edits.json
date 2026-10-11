@@ -1,0 +1,14 @@
+[
+  { "file": "src/pages/OrdersPage.tsx", "find": "  Badge,\n  Button,\n", "replace": "  Button,\n" },
+  { "file": "src/pages/OrdersPage.tsx", "find": "formatDate, orderStatuses, type Order", "replace": "formatDate, type Order" },
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "import { useOrders } from '../data/useOrders';\n",
+    "replace": "import { useOrders } from '../data/useOrders';\nimport { OrderStatusPill } from '../components/OrderStatusPill';\n"
+  },
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "render: (order) => <Badge tone={orderStatuses[order.status].tone}>{orderStatuses[order.status].label}</Badge>,",
+    "replace": "render: (order) => <OrderStatusPill status={order.status} />,"
+  }
+]

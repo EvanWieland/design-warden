@@ -1,0 +1,7 @@
+/* Benchmark: inline exceptions. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+/* design-warden-ignore-next-line color/semantic-tokens -- partner logo color required by contract */ /* @expect policy/inline-exception-rejected */
+.partner { color: #ff6a00; } /* @expect color/semantic-tokens */
+
+/* design-warden-ignore-next-line */ /* @expect policy/inline-exception-rejected */
+.blanket { padding: 7px; } /* @expect spacing/scale */

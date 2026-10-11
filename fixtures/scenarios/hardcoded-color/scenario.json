@@ -1,0 +1,22 @@
+{
+  "id": "hardcoded-color",
+  "number": 1,
+  "title": "Hardcoded color",
+  "kind": "violation",
+  "summary": "Highlights late shipments on the Overview with a literal red (#d93025) instead of a semantic color token.",
+  "whyItMatters": "The most common drift in AI-written UI: a plausible color that looks right but bypasses the palette, theming and contrast review.",
+  "expected": {
+    "outcome": "fail",
+    "findings": [
+      {
+        "ruleId": "color/semantic-tokens",
+        "file": "src/pages/OverviewPage.css",
+        "line": 3,
+        "outcome": "fail",
+        "messageIncludes": "#d93025"
+      }
+    ],
+    "provenance": [{ "component": "OverviewPage", "classification": "established" }],
+    "note": "The suggestion should name the closest text token (--color-text-danger), not the closest color of any role."
+  }
+}

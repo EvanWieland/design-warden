@@ -1,0 +1,177 @@
+# Design Warden for pull requests. As written it checks this repository's demo app and runs here
+# unchanged (.github/workflows/design-warden.yml is an identical copy, kept in sync by a test).
+#
+# To adopt it, change the variables under `env`. It assumes Design Warden lives in the same
+# repository (as in this repo or a fork of it) and runs from source on Node 24; once it is
+# published to npm, install a pinned version of that package instead of the worktree.
+# Every action is pinned to a full commit SHA, with its version in a comment (checked by tests/repo.test.ts).
+#
+# Trust model (docs/ci-integration.md, SECURITY.md):
+#  - Every job runs a trusted copy of Design Warden: a git worktree of the BASE branch outside the
+#    checkout, installed with --ignore-scripts. A pull request cannot change the tool that judges it.
+#  - The policy and the reviewer's guidance also come from the base branch (--policy-ref), so a pull
+#    request cannot weaken the checks either. Protect this workflow file with CODEOWNERS and a branch
+#    ruleset: on `pull_request`, the PR's own copy of this workflow runs.
+#  - The check and semantic jobs never install or execute pull-request code; the visual job must
+#    build the app, so it holds no secrets and never blocks. Only the semantic job has a secret,
+#    visible to one step. Fork PRs and Dependabot get no secrets, so the semantic job is skipped.
+
+name: Design Warden
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-warden-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_DIR: apps/demo                                  # directory with design-warden.policy.json
+  BUILD: pnpm --filter @design-warden/demo build          # builds the app into DIST
+  DIST: apps/demo/dist
+  BASE: origin/${{ github.base_ref }}
+
+jobs:
+  check:
+    name: Design policy (deterministic, blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The pull request, as data: read and diffed, never installed or executed in this job.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0              # the merge base needs history
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Install the trusted tool from the base branch, without install scripts
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/tool" "$BASE"
+          (cd "$RUNNER_TEMP/tool" && corepack enable && pnpm install --frozen-lockfile --ignore-scripts)
+          echo "WARDEN=node $RUNNER_TEMP/tool/packages/cli/src/bin.ts" >> "$GITHUB_ENV"
+
+      - name: Check the change against the base branch's policy
+        run: >
+          $WARDEN check
+          --policy "$PROJECT_DIR/design-warden.policy.json"
+          --policy-ref "$BASE"
+          --base "$BASE"
+          --format github
+          --report "$RUNNER_TEMP/design-warden.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: design-warden-report
+          path: ${{ runner.temp }}/design-warden.json
+
+  visual:
+    name: Visual changes (review only, never blocks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Same browser build and fonts as the npm version, so base and head render identically.
+    container: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f # the tag for people, the digest for the runner
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Trust the checkout (the container runs as a different user)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install the trusted tool from the base branch, without install scripts
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/tool" "$BASE"
+          (cd "$RUNNER_TEMP/tool" && corepack enable && pnpm install --frozen-lockfile --ignore-scripts)
+          echo "WARDEN=node $RUNNER_TEMP/tool/packages/cli/src/bin.ts" >> "$GITHUB_ENV"
+
+      # Building the app runs pull-request code by necessity; this job has no secrets and never blocks.
+      - name: Build and capture the base revision
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
+          (cd "$RUNNER_TEMP/base" && pnpm install --frozen-lockfile && $BUILD)
+          $WARDEN capture --policy "$PROJECT_DIR/design-warden.policy.json" --serve "$RUNNER_TEMP/base/$DIST" --out "$RUNNER_TEMP/captures/base"
+
+      - name: Build and capture the head revision
+        run: |
+          pnpm install --frozen-lockfile && $BUILD
+          $WARDEN capture --policy "$PROJECT_DIR/design-warden.policy.json" --serve "$DIST" --out "$RUNNER_TEMP/captures/head"
+
+      # --only: the check job owns the source findings; this job neither repeats nor gates on them.
+      - name: Compare (review requests only)
+        run: >
+          $WARDEN check
+          --policy "$PROJECT_DIR/design-warden.policy.json"
+          --policy-ref "$BASE" --base "$BASE"
+          --visual-base "$RUNNER_TEMP/captures/base" --visual-head "$RUNNER_TEMP/captures/head"
+          --artifacts "$RUNNER_TEMP/visual-artifacts"
+          --only visual
+          --format github --report "$RUNNER_TEMP/visual-report.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: design-warden-visual
+          path: |
+            ${{ runner.temp }}/visual-report.json
+            ${{ runner.temp }}/visual-artifacts
+
+  semantic:
+    name: AI design review (advisory, never blocks)
+    needs: check                      # no model tokens spent on a change that must be fixed anyway
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - name: Skip without credentials (forks, Dependabot)
+        if: env.HAS_KEY != 'true'
+        run: echo "No ANTHROPIC_API_KEY available; semantic review skipped."
+
+      # The pull request is data: it is read, never installed or executed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.HAS_KEY == 'true'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: env.HAS_KEY == 'true'
+        with:
+          node-version: 24
+
+      - name: Install the trusted tool from the base branch, without install scripts
+        if: env.HAS_KEY == 'true'
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/tool" "$BASE"
+          (cd "$RUNNER_TEMP/tool" && corepack enable && pnpm install --frozen-lockfile --ignore-scripts)
+          echo "WARDEN=node $RUNNER_TEMP/tool/packages/cli/src/bin.ts" >> "$GITHUB_ENV"
+
+      - name: Semantic review (the key is visible to this step only)
+        if: env.HAS_KEY == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >
+          $WARDEN check
+          --policy "$PROJECT_DIR/design-warden.policy.json"
+          --policy-ref "$BASE" --base "$BASE"
+          --semantic anthropic
+          --only semantic
+          --format github --report "$RUNNER_TEMP/semantic-report.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && env.HAS_KEY == 'true'
+        with:
+          name: design-warden-semantic
+          path: ${{ runner.temp }}/semantic-report.json

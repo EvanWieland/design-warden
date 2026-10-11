@@ -1,0 +1,17 @@
+{
+  "id": "custom-reimplementation",
+  "number": 5,
+  "title": "Unnecessary custom implementation",
+  "kind": "review",
+  "summary": "Replaces the Badge in the Orders status column with a hand-made OrderStatusPill that re-creates Badge's tones with its own CSS.",
+  "whyItMatters": "The new component even uses tokens, so no hard rule breaks, yet it duplicates Badge and will drift from it. This is a preferred-pattern deviation: review, not failure.",
+  "expected": {
+    "outcome": "review",
+    "findings": [
+      { "ruleId": "components/reuse-existing", "file": "src/components/OrderStatusPill.tsx", "line": 11, "outcome": "review", "messageIncludes": "re-implementation of <Badge>" },
+      { "ruleId": "patterns/provenance", "file": "src/components/OrderStatusPill.tsx", "outcome": "info" }
+    ],
+    "absentRules": ["color/semantic-tokens", "spacing/scale", "tokens/semantic-only"],
+    "provenance": [{ "component": "OrderStatusPill", "classification": "insufficient-evidence" }]
+  }
+}

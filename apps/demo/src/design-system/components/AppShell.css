@@ -1,0 +1,87 @@
+.ds-app-shell {
+  display: grid;
+  grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.ds-app-shell__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-3);
+  border-right: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-surface);
+}
+
+.ds-app-shell__product {
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.ds-app-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.ds-app-shell__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ds-app-shell__topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-surface);
+}
+
+.ds-app-shell__workspace {
+  font-weight: var(--font-weight-medium);
+}
+
+.ds-app-shell__main {
+  width: 100%;
+  max-width: var(--size-content-max);
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+/* Below 768px the sidebar becomes a horizontal navigation bar above the page. */
+@media (max-width: 767px) {
+  .ds-app-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .ds-app-shell__sidebar {
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-right: 0;
+    border-bottom: var(--border-width-default) solid var(--color-border-default);
+  }
+
+  .ds-app-shell__product {
+    padding: 0;
+  }
+
+  .ds-app-shell__nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .ds-app-shell__topbar {
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .ds-app-shell__main {
+    padding: var(--space-5) var(--space-4);
+  }
+}

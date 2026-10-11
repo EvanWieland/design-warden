@@ -1,0 +1,61 @@
+{
+  "$schema": "../../packages/core/schema/policy.schema.json",
+  "policyVersion": 1,
+  "name": "Starter design policy",
+  "revision": "0.1.0",
+  "owners": ["@your-org/design-system"],
+  "project": { "include": ["src/**/*.{ts,tsx,css}"], "exclude": ["**/*.test.*"] },
+  "designSystem": { "paths": ["src/ui/**"], "importSources": ["src/ui"] },
+  "tokens": { "sources": ["src/ui/tokens.css"], "allowedPrefixes": ["--color-", "--space-"] },
+  "guidance": {
+    "color": { "title": "Color", "path": "GUIDANCE.md", "section": "Color" },
+    "spacing": { "title": "Spacing", "path": "GUIDANCE.md", "section": "Spacing" },
+    "components": { "title": "Components", "path": "GUIDANCE.md", "section": "Components" }
+  },
+  "components": [
+    { "name": "Button", "source": "src/ui/Button.tsx", "replaces": ["button"], "props": { "variant": { "allowed": ["primary", "secondary"] } }, "guidance": ["components"] }
+  ],
+  "rules": [
+    {
+      "id": "color/tokens-only",
+      "version": 1,
+      "title": "Colors come from tokens",
+      "category": "mandatory",
+      "description": "Every color is a --color-* token.",
+      "rationale": "Literal colors drift from the palette and break theming.",
+      "verify": { "by": "check", "check": "no-hardcoded-color" },
+      "guidance": ["color"],
+      "remediation": "Use the semantic color token for the purpose.",
+      "examples": [
+        { "file": "src/app/Example.css", "code": ".a { color: #111; }", "expect": "fail" },
+        { "file": "src/app/Example.css", "code": ".a { color: var(--color-text); }", "expect": "pass" }
+      ]
+    },
+    {
+      "id": "spacing/scale",
+      "version": 1,
+      "title": "Spacing uses the scale",
+      "category": "mandatory",
+      "enforcement": "report",
+      "description": "Margins, paddings and gaps use --space-* tokens.",
+      "rationale": "A shared scale keeps rhythm consistent. Rolled out as report-only first.",
+      "verify": { "by": "check", "check": "spacing-scale" },
+      "guidance": ["spacing"],
+      "remediation": "Use the nearest --space-* step.",
+      "examples": [{ "file": "src/app/Example.css", "code": ".a { padding: 13px; }", "expect": "fail" }]
+    },
+    {
+      "id": "components/use-ui-controls",
+      "version": 1,
+      "title": "Use the UI kit's controls",
+      "category": "required-pattern",
+      "description": "Buttons are rendered with <Button>.",
+      "rationale": "The component carries focus, disabled and loading states.",
+      "verify": { "by": "check", "check": "raw-element" },
+      "scope": { "exclude": ["src/ui/**"] },
+      "guidance": ["components"],
+      "remediation": "Replace the raw element with the component named in the finding.",
+      "examples": [{ "file": "src/app/Example.tsx", "code": "export const A = () => <button>Go</button>;", "expect": "fail" }]
+    }
+  ]
+}

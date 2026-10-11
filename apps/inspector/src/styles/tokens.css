@@ -1,0 +1,108 @@
+/*
+ * Inspector design tokens. Components and views use only these semantic tokens.
+ * Light theme. Text/background pairs meet WCAG AA (4.5:1); status pairs are bg/fg/border triplets.
+ */
+:root {
+  color-scheme: light;
+
+  /* ---- Surfaces and text ---- */
+  --color-bg-canvas: #f5f6f8;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #eef0f3;
+  --color-bg-selected: #e7effc;
+  --color-bg-code: #f3f4f6;
+  --color-border: #d8dce2;
+  --color-border-strong: #aab2bd;
+  --color-text: #15191e;
+  --color-text-secondary: #49515b;
+  --color-text-muted: #5d6671;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #1d55b3;
+  --color-backdrop: rgb(21 25 30 / 0.5);
+
+  /* ---- Actions and focus ---- */
+  --color-action-primary: #1d55b3;
+  --color-action-primary-hover: #17468f;
+  --color-action-secondary-hover: #eef0f3;
+  --color-action-disabled-bg: #e4e7eb;
+  --color-action-disabled-text: #5d6671;
+  --color-focus-ring: #1d55b3;
+
+  /* ---- Status ---- */
+  --color-status-neutral-bg: #eef0f3;
+  --color-status-neutral-fg: #39404a;
+  --color-status-neutral-border: #cdd2d9;
+  --color-status-info-bg: #e7effc;
+  --color-status-info-fg: #1b4c9e;
+  --color-status-info-border: #b7cbef;
+  --color-status-success-bg: #e6f4ea;
+  --color-status-success-fg: #17602f;
+  --color-status-success-border: #a7d5b5;
+  --color-status-warning-bg: #fdf1dc;
+  --color-status-warning-fg: #7f4500;
+  --color-status-warning-border: #ecc98a;
+  --color-status-danger-bg: #fcebea;
+  --color-status-danger-fg: #9f1c1c;
+  --color-status-danger-border: #efb3b0;
+  /* "error": the result is unknown (an engine failed closed), distinct from a failing check. */
+  --color-status-error-bg: #2f343b;
+  --color-status-error-fg: #ffffff;
+  --color-status-error-border: #2f343b;
+  /* Model output: always visually distinct from deterministic results. */
+  --color-ai-bg: #f2edfc;
+  --color-ai-fg: #55309a;
+  --color-ai-border: #c9b6ee;
+
+  /* ---- Visual diff overlays (changed pixels in diff images are red, so regions are blue) ---- */
+  --color-region: #1d55b3;
+  --color-region-focus: #15191e;
+
+  /* ---- Space (4px scale) ---- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* ---- Type ---- */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --tracking-caps: 0.04em;
+
+  /* ---- Borders, sizes, elevation ---- */
+  --border-width: 1px;
+  --border-width-accent: 4px;
+  --focus-ring-width: 2px;
+  --region-outline-width: 2px;
+  --size-control: 32px;
+  --size-sidebar: 300px;
+  --size-content-max: 1440px;
+  --size-dialog-max: 1400px;
+  --size-panel: 560px;
+  --size-card-min: 280px;
+  --size-capture-min: 240px;
+  --size-table-min: 760px;
+  --size-time-column: 64px;
+  --shadow-dialog: 0 8px 32px rgb(21 25 30 / 0.24);
+}

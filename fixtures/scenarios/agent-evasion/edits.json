@@ -1,0 +1,8 @@
+[
+  {
+    "file": "src/pages/OverviewPage.tsx",
+    "find": "import { PartnerPromo } from '../legacy/PartnerPromo';\n",
+    "replace": "import { PartnerPromo } from '../legacy/PartnerPromo';\nimport { PromoRibbon } from '../components/PromoRibbon';\n"
+  },
+  { "file": "src/pages/OverviewPage.tsx", "find": "      <Stack direction=\"row\" gap={4} wrap>\n", "replace": "      <PromoRibbon />\n      <Stack direction=\"row\" gap={4} wrap>\n" }
+]

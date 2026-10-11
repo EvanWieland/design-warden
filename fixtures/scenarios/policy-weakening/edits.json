@@ -1,0 +1,12 @@
+[
+  {
+    "file": "design-warden.policy.json",
+    "find": "      \"title\": \"Colors come from semantic tokens\",\n",
+    "replace": "      \"title\": \"Colors come from semantic tokens\",\n      \"enforcement\": \"report\",\n"
+  },
+  {
+    "file": "src/pages/NewOrderPage.css",
+    "find": "  max-width: 40rem;\n}\n",
+    "replace": "  max-width: 40rem;\n}\n\n.new-order-page__hint {\n  color: #6b7280;\n}\n"
+  }
+]

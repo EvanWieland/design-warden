@@ -1,0 +1,9 @@
+.promo-ribbon {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  /* design-warden-ignore-next-line color/semantic-tokens -- approved by the design team */
+  background: #ff3e8a;
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+}

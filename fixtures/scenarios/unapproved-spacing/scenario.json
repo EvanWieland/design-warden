@@ -1,0 +1,15 @@
+{
+  "id": "unapproved-spacing",
+  "number": 2,
+  "title": "Unapproved spacing values",
+  "kind": "violation",
+  "summary": "Adds an order-summary block to the New order form styles with 18px and 10px spacing instead of the 4px-based scale.",
+  "whyItMatters": "Off-scale spacing is invisible in review but breaks vertical rhythm across screens. The finding suggests the nearest step so the fix is mechanical.",
+  "expected": {
+    "outcome": "fail",
+    "findings": [
+      { "ruleId": "spacing/scale", "file": "src/pages/NewOrderPage.css", "line": 8, "outcome": "fail", "messageIncludes": "18px" },
+      { "ruleId": "spacing/scale", "file": "src/pages/NewOrderPage.css", "line": 9, "outcome": "fail", "messageIncludes": "10px" }
+    ]
+  }
+}

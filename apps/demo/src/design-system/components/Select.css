@@ -1,0 +1,4 @@
+/* Field chrome comes from TextField.css; the native arrow is kept for accessibility. */
+.ds-select:enabled {
+  cursor: pointer;
+}

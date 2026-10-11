@@ -1,0 +1,23 @@
+{
+  "id": "compliant-change",
+  "number": 0,
+  "title": "Compliant change",
+  "kind": "clean",
+  "summary": "Adds a \"Sort by\" control to the Orders filter bar using the design-system Select, with no new styles.",
+  "whyItMatters": "A gate that complains about compliant work gets switched off. This is the false-positive baseline: an ordinary, correct change must pass with no findings.",
+  "expected": {
+    "outcome": "pass",
+    "findings": [],
+    "provenance": [
+      {
+        "component": "OrdersPage",
+        "classification": "established"
+      }
+    ],
+    "note": "The page still renders the same set of design-system components, so its pattern is unchanged.",
+    "semantic": {
+      "mustInclude": [],
+      "noViolations": true
+    }
+  }
+}

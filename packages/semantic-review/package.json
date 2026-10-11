@@ -1,0 +1,33 @@
+{
+  "name": "@design-warden/semantic-review",
+  "version": "0.1.0",
+  "description": "Optional, provider-agnostic LLM design review with schema-constrained output and local verification of every reference.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.11"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "@design-warden/core": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "5.0.3"
+  }
+}

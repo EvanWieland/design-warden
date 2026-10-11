@@ -1,0 +1,28 @@
+// Benchmark: SCSS. Each "@expect <rule>" marker labels a finding expected on its line.
+// A value the tool cannot resolve is expected as an "insufficient evidence" finding, which counts as reported.
+@use 'sass:math';
+
+// Tricky negatives: tokens, a variable aliasing another, an interpolated property, mixins without
+// arguments (with or without parentheses), a content-block mixin, and !default flags.
+$row-gap: var(--space-2) !default;
+$alias: $row-gap;
+.ok-panel {
+  padding: var(--space-4);
+  gap: $row-gap; /* @expect spacing/scale */
+  margin-#{$side}: var(--space-2);
+  @include focus-ring;
+  @include truncate();
+  @include breakpoint(md) {
+    padding: var(--space-5);
+  }
+}
+
+$brand-pink: #db2777; /* @expect color/semantic-tokens */
+.bad-panel {
+  padding: 18px; /* @expect spacing/scale */
+  color: darken($brand-pink, 10%); /* @expect color/semantic-tokens */
+  border: 1px solid rgba(15, 23, 42, 0.1); /* @expect color/semantic-tokens */
+  font-size: math.div(28px, 2); /* @expect typography/scale */
+  &:hover { background: #f1f5f9 !important; } /* @expect color/semantic-tokens @expect styles/no-important */
+  @include button-variant(#be123c, 10px); /* @expect color/semantic-tokens @expect spacing/scale @expect typography/scale */
+}

@@ -1,0 +1,4 @@
+[
+  { "file": "src/design-system/tokens.css", "find": "  --palette-blue-600: #2563eb;\n", "replace": "  --palette-blue-600: #7c3aed;\n" },
+  { "file": "src/design-system/tokens.css", "find": "  --palette-blue-700: #1d4ed8;\n", "replace": "  --palette-blue-700: #6d28d9;\n" }
+]

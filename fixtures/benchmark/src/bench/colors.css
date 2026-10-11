@@ -1,0 +1,16 @@
+/* Benchmark: color literals in CSS. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+.ok-token { color: var(--color-text-primary); }
+.ok-keywords { color: currentColor; background: transparent; border-color: inherit; }
+.ok-url-fragment { mask: url(#fade); }
+.ok-content { content: "#1"; }
+
+.bad-hex { color: #475569; } /* @expect color/semantic-tokens */
+.bad-short-hex { background: #fff; } /* @expect color/semantic-tokens */
+.bad-rgb { box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); } /* @expect color/semantic-tokens */
+.bad-hsl { border-color: hsl(210 40% 96%); } /* @expect color/semantic-tokens */
+.bad-named { border: 1px solid red; } /* @expect color/semantic-tokens */
+.bad-gradient { background: linear-gradient(90deg, #2563eb, #7c3aed); } /* @expect color/semantic-tokens x2 */
+.bad-fallback { color: var(--color-text-primary, #0f172a); } /* @expect color/semantic-tokens */
+.bad-oklch { outline-color: oklch(62% 0.2 260); } /* @expect color/semantic-tokens */
+.bad-local-var { --accent: #e11d48; } /* @expect color/semantic-tokens */

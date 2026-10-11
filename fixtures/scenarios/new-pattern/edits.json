@@ -1,0 +1,8 @@
+[
+  {
+    "file": "src/pages/OverviewPage.tsx",
+    "find": "import { PartnerPromo } from '../legacy/PartnerPromo';\n",
+    "replace": "import { PartnerPromo } from '../legacy/PartnerPromo';\nimport { ActivityTimeline } from '../components/ActivityTimeline';\n"
+  },
+  { "file": "src/pages/OverviewPage.tsx", "find": "      <PartnerPromo />\n", "replace": "      <ActivityTimeline />\n      <PartnerPromo />\n" }
+]

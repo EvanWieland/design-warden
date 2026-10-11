@@ -1,0 +1,30 @@
+{
+  "name": "design-warden-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24.11"
+  },
+  "scripts": {
+    "design-warden": "node packages/cli/src/bin.ts",
+    "demo": "corepack pnpm --filter @design-warden/demo dev",
+    "inspector": "corepack pnpm --filter @design-warden/inspector build && node apps/inspector/server/main.ts",
+    "scenario": "node tools/harness/src/cli.ts",
+    "build": "tsc -b packages/cli/tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/demo/tsconfig.json && tsc -p apps/inspector/tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:pack": "vitest run --config vitest.pack.config.ts",
+    "check:demo": "node packages/cli/src/bin.ts check --policy apps/demo/design-warden.policy.json --today 2026-10-10 && node packages/cli/src/bin.ts policy test --policy apps/demo/design-warden.policy.json",
+    "eval": "node tools/harness/src/eval-cli.ts",
+    "eval:semantic": "node tools/harness/src/semantic-eval.ts",
+    "schema": "node packages/cli/src/bin.ts policy schema > packages/core/schema/policy.schema.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,12 @@
+.ds-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+}
+
+/* Filters share the row but stay a readable width on wide screens. */
+.ds-filter-bar > .ds-field {
+  flex: 1 1 12rem;
+  max-width: 20rem;
+}

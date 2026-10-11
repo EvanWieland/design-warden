@@ -1,0 +1,4 @@
+/* Single-column forms stay at a readable width inside a wide card. */
+.new-order-page__form {
+  max-width: 40rem;
+}

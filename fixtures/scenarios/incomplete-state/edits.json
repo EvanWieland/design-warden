@@ -1,0 +1,5 @@
+[
+  { "file": "src/App.tsx", "find": "import { SettingsPage } from './pages/SettingsPage';\n", "replace": "import { SettingsPage } from './pages/SettingsPage';\nimport { CustomersPage } from './pages/CustomersPage';\n" },
+  { "file": "src/App.tsx", "find": "  { to: '/orders', label: 'Orders' },\n", "replace": "  { to: '/orders', label: 'Orders' },\n  { to: '/customers', label: 'Customers' },\n" },
+  { "file": "src/App.tsx", "find": "    case '/settings':\n", "replace": "    case '/customers':\n      return { title: 'Customers', page: <CustomersPage /> };\n    case '/settings':\n" }
+]

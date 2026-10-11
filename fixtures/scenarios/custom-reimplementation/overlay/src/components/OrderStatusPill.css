@@ -1,0 +1,27 @@
+.order-status-pill {
+  display: inline-flex;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.order-status-pill--pending {
+  background: var(--color-status-warning-bg);
+  color: var(--color-status-warning-fg);
+}
+
+.order-status-pill--paid {
+  background: var(--color-status-info-bg);
+  color: var(--color-status-info-fg);
+}
+
+.order-status-pill--shipped {
+  background: var(--color-status-success-bg);
+  color: var(--color-status-success-fg);
+}
+
+.order-status-pill--refunded {
+  background: var(--color-status-neutral-bg);
+  color: var(--color-status-neutral-fg);
+}

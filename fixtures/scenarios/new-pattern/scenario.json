@@ -1,0 +1,53 @@
+{
+  "id": "new-pattern",
+  "number": 7,
+  "title": "Legitimate new pattern",
+  "kind": "legitimate-deviation",
+  "summary": "Adds an ActivityTimeline to the Overview: a pattern the system does not have yet, composed from Card, Badge and semantic tokens only.",
+  "whyItMatters": "New patterns are how a design system grows. Design Warden must not reject this for being new. It classifies it as novel and requests a design review instead of failing.",
+  "expected": {
+    "outcome": "review",
+    "findings": [
+      {
+        "ruleId": "patterns/provenance",
+        "file": "src/components/ActivityTimeline.tsx",
+        "line": 19,
+        "outcome": "review",
+        "messageIncludes": "novel pattern"
+      },
+      {
+        "ruleId": "patterns/provenance",
+        "file": "src/pages/OverviewPage.tsx",
+        "outcome": "info"
+      }
+    ],
+    "absentRules": [
+      "color/semantic-tokens",
+      "spacing/scale",
+      "tokens/semantic-only",
+      "components/design-system-controls",
+      "components/prop-contracts",
+      "components/reuse-existing"
+    ],
+    "provenance": [
+      {
+        "component": "ActivityTimeline",
+        "classification": "novel"
+      },
+      {
+        "component": "OverviewPage",
+        "classification": "modified"
+      }
+    ],
+    "semantic": {
+      "mustInclude": [
+        {
+          "ruleId": "patterns/justified-novelty",
+          "verdicts": [
+            "acceptable-deviation"
+          ]
+        }
+      ]
+    }
+  }
+}

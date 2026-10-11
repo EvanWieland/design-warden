@@ -1,0 +1,35 @@
+.ds-card {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.ds-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+}
+
+.ds-card__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.ds-card__actions {
+  margin-left: auto;
+}
+
+.ds-card__body {
+  padding: var(--space-5);
+}
+
+@media (max-width: 767px) {
+  .ds-card__header,
+  .ds-card__body {
+    padding: var(--space-4);
+  }
+}

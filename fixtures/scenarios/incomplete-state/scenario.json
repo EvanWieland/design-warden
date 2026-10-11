@@ -1,0 +1,50 @@
+{
+  "id": "incomplete-state",
+  "number": 4,
+  "title": "Incomplete interaction states",
+  "kind": "violation",
+  "summary": "Adds a Customers page whose DataTable has no status and no empty state, so loading, empty and error states are missing.",
+  "whyItMatters": "Missing states pass every happy-path demo and fail real users. The component contract makes the omission objectively detectable.",
+  "expected": {
+    "outcome": "fail",
+    "findings": [
+      {
+        "ruleId": "components/prop-contracts",
+        "file": "src/pages/CustomersPage.tsx",
+        "line": 30,
+        "outcome": "fail",
+        "messageIncludes": "`status`"
+      },
+      {
+        "ruleId": "components/prop-contracts",
+        "file": "src/pages/CustomersPage.tsx",
+        "line": 30,
+        "outcome": "fail",
+        "messageIncludes": "`emptyState`"
+      },
+      {
+        "ruleId": "patterns/provenance",
+        "file": "src/pages/CustomersPage.tsx",
+        "outcome": "info"
+      }
+    ],
+    "provenance": [
+      {
+        "component": "CustomersPage",
+        "classification": "modified"
+      }
+    ],
+    "note": "Provenance relates the page to existing list and dashboard pages (a variation of an established pattern), which is informational.",
+    "semantic": {
+      "mustInclude": [
+        {
+          "ruleId": "states/complete-and-explained",
+          "verdicts": [
+            "violation",
+            "probable-violation"
+          ]
+        }
+      ]
+    }
+  }
+}

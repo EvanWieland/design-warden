@@ -1,0 +1,16 @@
+{
+  "id": "policy-weakening",
+  "number": 10,
+  "title": "Change weakens its own policy",
+  "kind": "security",
+  "summary": "A change adds a literal gray to the form styles and, in the same commit, downgrades the color rule from \"block\" to \"report\" in the policy file.",
+  "whyItMatters": "If the policy under review comes from the change itself, any rule can be switched off by the change it should catch. Loading the policy from the base branch (--policy-ref) keeps the gate intact, and the policy edit is always reported for owner review.",
+  "policyFromBase": true,
+  "expected": {
+    "outcome": "fail",
+    "findings": [
+      { "ruleId": "color/semantic-tokens", "file": "src/pages/NewOrderPage.css", "line": 7, "outcome": "fail" },
+      { "ruleId": "policy/changed", "file": "design-warden.policy.json", "outcome": "review", "messageIncludes": "policy changed" }
+    ]
+  }
+}

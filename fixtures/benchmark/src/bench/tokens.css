@@ -1,0 +1,8 @@
+/* Benchmark: token references. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+.ok-semantic { color: var(--color-text-primary); padding: var(--space-2); }
+.ok-local { --row-gap: var(--space-2); gap: var(--row-gap); }
+
+.bad-primitive { color: var(--palette-gray-500); } /* @expect tokens/semantic-only */
+.bad-typo { background: var(--color-bg-surfce); } /* @expect tokens/semantic-only */
+.bad-unknown { border-radius: var(--radius-xxl); } /* @expect tokens/semantic-only */

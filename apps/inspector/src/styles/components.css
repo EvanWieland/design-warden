@@ -1,0 +1,316 @@
+/* Components from ui.tsx. Every value comes from tokens.css. */
+
+/* ---- Badge ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--badge-border);
+  border-radius: var(--radius-pill);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+  white-space: nowrap;
+}
+
+.badge--neutral {
+  --badge-bg: var(--color-status-neutral-bg);
+  --badge-fg: var(--color-status-neutral-fg);
+  --badge-border: var(--color-status-neutral-border);
+}
+.badge--info {
+  --badge-bg: var(--color-status-info-bg);
+  --badge-fg: var(--color-status-info-fg);
+  --badge-border: var(--color-status-info-border);
+}
+.badge--success {
+  --badge-bg: var(--color-status-success-bg);
+  --badge-fg: var(--color-status-success-fg);
+  --badge-border: var(--color-status-success-border);
+}
+.badge--warning {
+  --badge-bg: var(--color-status-warning-bg);
+  --badge-fg: var(--color-status-warning-fg);
+  --badge-border: var(--color-status-warning-border);
+}
+.badge--danger {
+  --badge-bg: var(--color-status-danger-bg);
+  --badge-fg: var(--color-status-danger-fg);
+  --badge-border: var(--color-status-danger-border);
+}
+.badge--error {
+  --badge-bg: var(--color-status-error-bg);
+  --badge-fg: var(--color-status-error-fg);
+  --badge-border: var(--color-status-error-border);
+}
+.badge--ai {
+  --badge-bg: var(--color-ai-bg);
+  --badge-fg: var(--color-ai-fg);
+  --badge-border: var(--color-ai-border);
+  white-space: normal;
+}
+
+/* ---- Button ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--size-control);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--color-action-secondary-hover);
+}
+.btn--primary {
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-action-primary-hover);
+}
+.btn--link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-link);
+  text-decoration: underline;
+  text-align: left;
+}
+.btn--link:hover:not(:disabled) {
+  background: none;
+  text-decoration-thickness: var(--focus-ring-width);
+}
+.btn:disabled {
+  border-color: var(--color-action-disabled-bg);
+  background: var(--color-action-disabled-bg);
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+}
+
+/* ---- Card ---- */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+}
+.card__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+/* ---- Alert ---- */
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--alert-border);
+  border-left-width: var(--border-width-accent);
+  border-radius: var(--radius-md);
+  background: var(--alert-bg);
+  color: var(--alert-fg);
+}
+.alert--info {
+  --alert-bg: var(--color-status-info-bg);
+  --alert-fg: var(--color-status-info-fg);
+  --alert-border: var(--color-status-info-border);
+}
+.alert--warning {
+  --alert-bg: var(--color-status-warning-bg);
+  --alert-fg: var(--color-status-warning-fg);
+  --alert-border: var(--color-status-warning-border);
+}
+.alert--danger {
+  --alert-bg: var(--color-status-danger-bg);
+  --alert-fg: var(--color-status-danger-fg);
+  --alert-border: var(--color-status-danger-border);
+}
+
+/* ---- Empty state ---- */
+.empty {
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+.empty__title {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+.empty__body {
+  margin-top: var(--space-1);
+}
+
+/* ---- Segmented control (native radios) ---- */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+.segmented__option {
+  position: relative;
+}
+.segmented__option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.segmented__option span {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+}
+.segmented__option input:checked + span {
+  background: var(--color-bg-surface);
+  color: var(--color-text);
+  box-shadow: 0 0 0 var(--border-width) var(--color-border-strong);
+}
+.segmented__option input:focus-visible + span {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--border-width);
+}
+
+/* ---- Form fields ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.select {
+  min-height: var(--size-control);
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.check input {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  margin-top: var(--space-1);
+  accent-color: var(--color-action-primary);
+}
+
+/* ---- Dialog (native <dialog>) ---- */
+.dialog {
+  width: min(var(--size-dialog-max), calc(100% - 2 * var(--space-4)));
+  max-width: none;
+  max-height: calc(100% - 2 * var(--space-4));
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-dialog);
+}
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+.dialog--side {
+  inset: 0 0 0 auto;
+  width: min(var(--size-panel), 100%);
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+.dialog__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+.dialog__title {
+  min-width: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+.dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+/* ---- Tables ---- */
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+/* Identifiers keep their width so columns never shrink to a character; paths wrap after a slash (Path). */
+.table code {
+  overflow-wrap: normal;
+}
+.table th {
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+/* ---- Key/value lists ---- */
+.kv {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+}
+.kv > div {
+  display: contents;
+}
+.kv dt {
+  color: var(--color-text-secondary);
+}
+.kv dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

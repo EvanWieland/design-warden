@@ -1,0 +1,12 @@
+[
+  {
+    "file": "src/pages/OverviewPage.tsx",
+    "find": "import { PartnerPromo } from '../legacy/PartnerPromo';\n",
+    "replace": "import { PartnerPromo } from '../legacy/PartnerPromo';\nimport './OverviewPage.css';\n"
+  },
+  {
+    "file": "src/pages/OverviewPage.tsx",
+    "find": "      <Card title=\"Recent orders\"",
+    "replace": "      <p className=\"overview-page__late-note\">7 shipments are late. Contact the carriers today.</p>\n      <Card title=\"Recent orders\""
+  }
+]

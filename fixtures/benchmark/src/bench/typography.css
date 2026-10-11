@@ -1,0 +1,18 @@
+/* Benchmark: font sizes. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+/* Tricky negatives: tokens, relative sizes (em is relative to the parent and not on this rule's px/rem scale), keywords, viewport units, and lengths in other properties. */
+.ok-token { font-size: var(--font-size-md); line-height: var(--line-height-base); }
+.ok-relative { font-size: 100%; }
+.ok-relative-em { font-size: 0.875em; }
+.ok-keyword { font-size: inherit; }
+.ok-fluid { font-size: clamp(var(--font-size-md), 2vw, var(--font-size-xl)); }
+.ok-not-font-size { line-height: 20px; letter-spacing: 0.5px; }
+
+.bad-px { font-size: 15px; } /* @expect typography/scale */
+.bad-exact-rem { font-size: 0.75rem; } /* @expect typography/scale */
+.bad-fallback { font-size: var(--font-size-sm, 13px); } /* @expect typography/scale */
+.bad-clamp { font-size: clamp(14px, 2vw, 18px); } /* @expect typography/scale x2 */
+.bad-calc { font-size: calc(var(--font-size-md) + 1px); } /* @expect typography/scale */
+
+/* Known limitation: the font shorthand is not read, so its size is a false negative. */
+.missed-shorthand { font: 600 15px/1.25 var(--font-family-base); } /* @expect typography/scale */

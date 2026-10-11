@@ -1,0 +1,5 @@
+/* Late shipments need attention from operations today. */
+.overview-page__late-note {
+  color: #d93025;
+  font-weight: var(--font-weight-semibold);
+}

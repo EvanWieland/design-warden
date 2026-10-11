@@ -1,0 +1,48 @@
+/* Document reset and defaults. Every value comes from tokens.css. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+}
+
+h1,
+h2,
+h3,
+p,
+ul {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  margin: 0;
+  font: inherit;
+}
+
+/* One focus ring for every interactive element. */
+:focus-visible {
+  outline: var(--border-width-default) solid var(--color-focus-ring);
+  outline-offset: var(--border-width-default);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Hidden on screen, still read by assistive technology. 1px is part of the technique, not a design size. */
+.ds-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

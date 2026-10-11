@@ -1,0 +1,7 @@
+[
+  {
+    "file": "src/pages/NewOrderPage.css",
+    "find": "  max-width: 40rem;\n}\n",
+    "replace": "  max-width: 40rem;\n}\n\n/* Order summary shown under the form. */\n.new-order-page__summary {\n  margin-top: 18px;\n  padding: 10px var(--space-4);\n}\n"
+  }
+]

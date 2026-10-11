@@ -1,0 +1,13 @@
+/* Benchmark: spacing values. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+.ok-tokens { padding: var(--space-3) var(--space-4); gap: var(--space-2); }
+.ok-zero-auto { margin: 0 auto; }
+.ok-percent { padding-top: 56.25%; }
+.ok-not-spacing { inset: 4px; width: 240px; border-width: 1px; }
+
+.bad-px { padding: 13px; } /* @expect spacing/scale */
+.bad-two { margin: 10px 18px; } /* @expect spacing/scale x2 */
+.bad-rem { gap: 1.5rem; } /* @expect spacing/scale */
+.bad-negative { margin-top: -8px; } /* @expect spacing/scale */
+.bad-calc { padding-left: calc(var(--space-4) + 2px); } /* @expect spacing/scale */
+.bad-logical { margin-inline: 20px; } /* @expect spacing/scale */

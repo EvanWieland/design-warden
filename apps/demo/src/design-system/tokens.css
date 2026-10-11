@@ -1,0 +1,102 @@
+/*
+ * Acme design tokens. This file is the token source Design Warden reads
+ * (design-warden.policy.json -> tokens.sources).
+ *
+ * Two tiers:
+ *   --palette-*  primitives. Internal: only this file may use them.
+ *   everything else  semantic tokens. Application code uses only these.
+ */
+:root {
+  /* ---- Primitives (internal) ---- */
+  --palette-white: #ffffff;
+  --palette-gray-50: #f8fafc;
+  --palette-gray-100: #f1f5f9;
+  --palette-gray-200: #e2e8f0;
+  --palette-gray-300: #cbd5e1;
+  --palette-gray-500: #64748b;
+  --palette-gray-600: #475569;
+  --palette-gray-700: #334155;
+  --palette-gray-900: #0f172a;
+  --palette-blue-50: #eff6ff;
+  --palette-blue-100: #dbeafe;
+  --palette-blue-600: #2563eb;
+  --palette-blue-700: #1d4ed8;
+  --palette-green-50: #f0fdf4;
+  --palette-green-700: #15803d;
+  --palette-amber-50: #fffbeb;
+  --palette-amber-700: #b45309;
+  --palette-red-50: #fef2f2;
+  --palette-red-600: #dc2626;
+  --palette-red-700: #b91c1c;
+
+  /* ---- Color ---- */
+  --color-bg-canvas: var(--palette-gray-50);
+  --color-bg-surface: var(--palette-white);
+  --color-bg-subtle: var(--palette-gray-100);
+  --color-bg-selected: var(--palette-blue-50);
+  --color-border-default: var(--palette-gray-200);
+  --color-border-strong: var(--palette-gray-300);
+  --color-text-primary: var(--palette-gray-900);
+  --color-text-secondary: var(--palette-gray-600);
+  --color-text-muted: var(--palette-gray-500);
+  --color-text-inverse: var(--palette-white);
+  --color-text-link: var(--palette-blue-700);
+  --color-text-danger: var(--palette-red-700);
+  --color-action-primary: var(--palette-blue-600);
+  --color-action-primary-hover: var(--palette-blue-700);
+  --color-action-secondary-bg: var(--palette-white);
+  --color-action-secondary-hover: var(--palette-gray-100);
+  --color-action-danger: var(--palette-red-600);
+  --color-action-danger-hover: var(--palette-red-700);
+  --color-action-disabled-bg: var(--palette-gray-100);
+  --color-action-disabled-text: var(--palette-gray-500);
+  --color-focus-ring: var(--palette-blue-600);
+  --color-status-neutral-bg: var(--palette-gray-100);
+  --color-status-neutral-fg: var(--palette-gray-700);
+  --color-status-info-bg: var(--palette-blue-50);
+  --color-status-info-fg: var(--palette-blue-700);
+  --color-status-success-bg: var(--palette-green-50);
+  --color-status-success-fg: var(--palette-green-700);
+  --color-status-warning-bg: var(--palette-amber-50);
+  --color-status-warning-fg: var(--palette-amber-700);
+  --color-status-danger-bg: var(--palette-red-50);
+  --color-status-danger-fg: var(--palette-red-700);
+
+  /* ---- Spacing (4px base) ---- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* ---- Shape, size, elevation ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --size-control-sm: 28px;
+  --size-control-md: 36px;
+  --size-sidebar: 232px;
+  --size-content-max: 1200px;
+  --border-width-default: 1px;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
+  --shadow-focus: 0 0 0 3px var(--palette-blue-100);
+
+  /* ---- Typography ---- */
+  --font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
+}

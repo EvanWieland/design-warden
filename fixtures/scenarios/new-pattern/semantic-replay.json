@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "ruleId": "patterns/justified-novelty",
+      "verdict": "acceptable-deviation",
+      "confidence": "medium",
+      "file": "src/components/ActivityTimeline.tsx",
+      "line": 22,
+      "quote": "<ol className=\"activity-timeline\">",
+      "explanation": "No existing pattern covers a timeline. It composes Card and Badge and uses only semantic tokens, which is what 'Introducing a new pattern' asks for. Worth documenting if a second screen reuses it.",
+      "guidance": ["new-patterns"],
+      "remediation": "Document the timeline in patterns.md once a second screen adopts it."
+    }
+  ]
+}

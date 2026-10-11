@@ -1,0 +1,12 @@
+[
+  {
+    "file": "src/pages/SettingsPage.tsx",
+    "find": "import './SettingsPage.css';\n",
+    "replace": "import './SettingsPage.css';\nimport { AssigneeAvatar } from '../components/AssigneeAvatar';\n\n// In production this comes from the user service.\nconst ADMINS = [\n  { name: 'Maya Chen', color: '#0e7490' },\n  { name: 'Luis Ortega', color: '#7c3aed' },\n];\n"
+  },
+  {
+    "file": "src/pages/SettingsPage.tsx",
+    "find": "      </Card>\n    </Stack>\n  );\n}\n",
+    "replace": "      </Card>\n      <Card title=\"Administrators\">\n        <Stack direction=\"row\" gap={3}>\n          {ADMINS.map((admin) => (\n            <AssigneeAvatar key={admin.name} assignee={admin} />\n          ))}\n        </Stack>\n      </Card>\n    </Stack>\n  );\n}\n"
+  }
+]

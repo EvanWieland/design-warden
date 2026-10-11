@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+*.log
+.env
+.env.*
+# Design Warden runtime output (reports, captures, scenario workspaces)
+.design-warden/
+# Local Claude Code overrides
+CLAUDE.local.md
+.claude/settings.local.json

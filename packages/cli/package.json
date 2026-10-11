@@ -1,0 +1,40 @@
+{
+  "name": "@design-warden/cli",
+  "version": "0.1.0",
+  "description": "Design Warden command line: checks frontend changes against a design policy.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.11"
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "design-warden": "./src/bin.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "bin": {
+      "design-warden": "./dist/bin.js"
+    }
+  },
+  "dependencies": {
+    "@design-warden/core": "workspace:*",
+    "@design-warden/semantic-review": "workspace:*",
+    "@design-warden/source-analysis": "workspace:*",
+    "@design-warden/visual-analysis": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.3"
+  }
+}

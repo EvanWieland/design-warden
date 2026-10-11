@@ -1,0 +1,10 @@
+/* Benchmark: cases from the 2026-10-10 false-positive/false-negative audit. Each "@expect <rule>" marker labels a finding expected on its line. */
+
+.ok-calc-multiplier { margin-inline: calc(var(--space-3) * -1); padding-block: calc(var(--space-2) * 2); }
+.ok-calc-divisor { gap: calc(var(--space-4) / 2); }
+
+.bad-fallback { padding: var(--space-4, 16px); } /* @expect spacing/scale */
+.bad-translucent { border-color: #0f172a14; } /* @expect color/semantic-tokens */
+
+/* A token redefined outside the token sources, with a literal color: both rules apply. */
+.bad-redefinition { --color-text-primary: #111827; } /* @expect tokens/semantic-only @expect color/semantic-tokens */

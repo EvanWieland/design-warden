@@ -1,0 +1,829 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "policyVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Content revision of this policy, e.g. \"2026.10.1\"."
+    },
+    "owners": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "include": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+          }
+        },
+        "exclude": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+          }
+        }
+      },
+      "required": [
+        "include"
+      ],
+      "additionalProperties": false
+    },
+    "designSystem": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+          },
+          "description": "Files that implement the design system itself."
+        },
+        "importSources": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Module specifiers or project paths that count as design-system imports."
+        }
+      },
+      "required": [
+        "paths",
+        "importSources"
+      ],
+      "additionalProperties": false
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "sources": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to the directory containing the policy file."
+          },
+          "description": "Token files: CSS that defines tokens as custom properties, or DTCG *.tokens.json files (names derived as --group-token)."
+        },
+        "allowedPrefixes": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "starts_with",
+            "pattern": "^--.*"
+          },
+          "description": "Token prefixes application code may reference; other defined tokens are internal."
+        }
+      },
+      "required": [
+        "sources",
+        "allowedPrefixes"
+      ],
+      "additionalProperties": false
+    },
+    "components": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exported component name, e.g. \"Button\"."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "File that implements the component."
+          },
+          "replaces": {
+            "default": [],
+            "description": "Raw elements this component supersedes: \"button\", \"input[type=checkbox]\", or an ARIA imitation such as \"[role=button]\".",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?=.)([a-z][a-z0-9-]*)?(\\[[a-z-]+=[^\\]]+\\])?$"
+            }
+          },
+          "aliases": {
+            "default": [],
+            "description": "Name fragments that suggest a re-implementation, e.g. [\"pill\", \"chip\"].",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "props": {
+            "default": {},
+            "description": "Prop contract checked at call sites.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "allowed": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  }
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "guidance": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "patterns": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Reference implementation of the pattern."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "guidance": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "reference",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "guidance": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "description": "Repository file holding the guidance (for example a design skill page).",
+            "type": "string",
+            "minLength": 1
+          },
+          "section": {
+            "description": "Heading inside the file that the reference points at.",
+            "type": "string"
+          },
+          "url": {
+            "description": "External documentation URL (http or https). Shown as a link; never fetched.",
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Bump when the meaning of the rule changes."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "mandatory",
+              "required-pattern",
+              "preferred",
+              "advisory"
+            ]
+          },
+          "severity": {
+            "description": "Defaults from the category.",
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "enforcement": {
+            "description": "What a confirmed violation does in CI. Defaults from the category.",
+            "type": "string",
+            "enum": [
+              "block",
+              "review",
+              "report"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verify": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "by": {
+                    "type": "string",
+                    "const": "check"
+                  },
+                  "check": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$",
+                    "description": "Built-in deterministic check that verifies this rule."
+                  },
+                  "options": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "by",
+                  "check"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "by": {
+                    "type": "string",
+                    "const": "semantic",
+                    "description": "Judged by the optional semantic reviewer; can never block."
+                  }
+                },
+                "required": [
+                  "by"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "by": {
+                    "type": "string",
+                    "const": "manual",
+                    "description": "Documented only; given to reviewers as context."
+                  }
+                },
+                "required": [
+                  "by"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "scope": {
+            "description": "Narrows the project include/exclude for this rule.",
+            "type": "object",
+            "properties": {
+              "include": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+                }
+              },
+              "exclude": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "guidance": {
+            "default": [],
+            "description": "Keys of entries in the top-level guidance map.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remediation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examples": {
+            "default": [],
+            "description": "Executable examples, run by `design-warden policy test`.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Virtual file name; its extension selects the parser and it is matched against the rule scope."
+                },
+                "code": {
+                  "type": "string"
+                },
+                "expect": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail"
+                  ]
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "file",
+                "code",
+                "expect"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inlineExceptions": {
+            "description": "Whether design-warden-ignore comments may suppress this rule. Defaults to false for mandatory and required-pattern rules.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "category",
+          "description",
+          "rationale",
+          "verify",
+          "remediation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "exceptions": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+          },
+          "rules": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+            },
+            "description": "Rules this exception applies to. Wildcards are not allowed."
+          },
+          "paths": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Glob relative to the project root, e.g. \"src/**/*.tsx\"."
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10
+          },
+          "approvedBy": {
+            "type": "string"
+          },
+          "expires": {
+            "description": "YYYY-MM-DD. After this date the exception stops applying.",
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          }
+        },
+        "required": [
+          "id",
+          "rules",
+          "paths",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "approvals": {
+      "default": [],
+      "description": "Accepted review requests. They can clear review findings only, never blocking ones.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}(-\\d+)?$",
+            "description": "The finding id from the JSON report (partialFingerprints in SARIF)."
+          },
+          "rule": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+          },
+          "file": {
+            "description": "Omitted for findings without a location, such as visual changes.",
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10
+          },
+          "approvedBy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expires": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "description": "YYYY-MM-DD. Required, so acceptances are re-examined."
+          }
+        },
+        "required": [
+          "fingerprint",
+          "rule",
+          "reason",
+          "approvedBy",
+          "expires"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "visual": {
+      "type": "object",
+      "properties": {
+        "viewports": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+              },
+              "width": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "height": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "id",
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "routes": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+              },
+              "path": {
+                "type": "string",
+                "format": "starts_with",
+                "pattern": "^\\/.*"
+              },
+              "states": {
+                "default": [
+                  {
+                    "id": "default",
+                    "actions": []
+                  }
+                ],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]+(?:[-./][a-z0-9]+)*$"
+                    },
+                    "query": {
+                      "description": "Query string appended to the route, without \"?\".",
+                      "type": "string"
+                    },
+                    "actions": {
+                      "default": [],
+                      "description": "Limited, declarative interactions. No scripts.",
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "click": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "click"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "hover": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "hover"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "focus": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "focus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "fill": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "fill",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "press": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "key": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "press",
+                              "key"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "waitFor": {
+                      "description": "CSS selector that must be visible before capture.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "mask": {
+          "default": [],
+          "description": "CSS selectors painted over before comparison (volatile content).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "viewports",
+        "routes"
+      ],
+      "additionalProperties": false
+    },
+    "semanticReview": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Allows semantic review. A provider must still be configured in the environment.",
+          "type": "boolean"
+        },
+        "maxFiles": {
+          "default": 12,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxFileChars": {
+          "default": 20000,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "includeScreenshots": {
+          "default": false,
+          "type": "boolean"
+        },
+        "guidance": {
+          "default": [],
+          "description": "Guidance entries always sent as context.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "failurePolicy": {
+      "default": {
+        "source": "fail-closed",
+        "visual": "review",
+        "semantic": "review"
+      },
+      "description": "What happens when a configured engine cannot complete.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "default": "fail-closed",
+          "type": "string",
+          "enum": [
+            "fail-closed",
+            "review",
+            "fail-open"
+          ]
+        },
+        "visual": {
+          "default": "review",
+          "type": "string",
+          "enum": [
+            "fail-closed",
+            "review",
+            "fail-open"
+          ]
+        },
+        "semantic": {
+          "default": "review",
+          "type": "string",
+          "enum": [
+            "fail-closed",
+            "review",
+            "fail-open"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "policyVersion",
+    "name",
+    "revision",
+    "project",
+    "designSystem",
+    "tokens",
+    "rules"
+  ],
+  "additionalProperties": false
+}

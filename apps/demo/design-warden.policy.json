@@ -1,0 +1,375 @@
+{
+  "$schema": "../../packages/core/schema/policy.schema.json",
+  "policyVersion": 1,
+  "name": "Acme Console design policy",
+  "revision": "2026.10.1",
+  "owners": ["@acme/design-system"],
+  "project": {
+    "include": ["src/**/*.{ts,tsx,css,scss,vue,svelte}"],
+    "exclude": ["**/*.test.*", "src/vite-env.d.ts"]
+  },
+  "designSystem": {
+    "paths": ["src/design-system/**"],
+    "importSources": ["src/design-system"]
+  },
+  "tokens": {
+    "sources": ["src/design-system/tokens.css"],
+    "allowedPrefixes": ["--color-", "--space-", "--radius-", "--size-", "--shadow-", "--font-", "--line-height-", "--border-width-"]
+  },
+  "guidance": {
+    "tokens": { "title": "Design tokens", "path": ".claude/skills/acme-design-system/foundations.md", "section": "Tokens" },
+    "color": { "title": "Color", "path": ".claude/skills/acme-design-system/foundations.md", "section": "Color" },
+    "spacing": { "title": "Spacing", "path": ".claude/skills/acme-design-system/foundations.md", "section": "Spacing" },
+    "typography": { "title": "Typography", "path": ".claude/skills/acme-design-system/foundations.md", "section": "Typography" },
+    "components": { "title": "Component catalog", "path": ".claude/skills/acme-design-system/components.md" },
+    "states": { "title": "Interaction states", "path": ".claude/skills/acme-design-system/states.md" },
+    "patterns": { "title": "Page patterns", "path": ".claude/skills/acme-design-system/patterns.md" },
+    "new-patterns": { "title": "Introducing a new pattern", "path": ".claude/skills/acme-design-system/patterns.md", "section": "Introducing a new pattern" },
+    "content": { "title": "Writing for interface states", "path": ".claude/skills/acme-design-system/content.md" },
+    "governance": { "title": "Changing the design system", "path": ".claude/skills/acme-design-system/governance.md" }
+  },
+  "components": [
+    {
+      "name": "Button",
+      "source": "src/design-system/components/Button.tsx",
+      "replaces": ["button", "[role=button]"],
+      "aliases": ["btn", "cta"],
+      "props": { "variant": { "allowed": ["primary", "secondary", "danger", "ghost"] }, "size": { "allowed": ["sm", "md"] } },
+      "guidance": ["components"]
+    },
+    { "name": "Link", "source": "src/design-system/components/Link.tsx", "replaces": ["a", "[role=link]"], "guidance": ["components"] },
+    {
+      "name": "TextField",
+      "source": "src/design-system/components/TextField.tsx",
+      "replaces": ["input", "textarea"],
+      "props": { "label": { "required": true } },
+      "guidance": ["components", "states"]
+    },
+    {
+      "name": "Select",
+      "source": "src/design-system/components/Select.tsx",
+      "replaces": ["select"],
+      "props": { "label": { "required": true } },
+      "guidance": ["components"]
+    },
+    { "name": "Checkbox", "source": "src/design-system/components/Checkbox.tsx", "replaces": ["input[type=checkbox]", "[role=checkbox]"], "props": { "label": { "required": true } }, "guidance": ["components"] },
+    {
+      "name": "Badge",
+      "source": "src/design-system/components/Badge.tsx",
+      "aliases": ["pill", "chip", "tag", "status label"],
+      "props": { "tone": { "required": true, "allowed": ["neutral", "info", "success", "warning", "danger"] } },
+      "guidance": ["components"]
+    },
+    { "name": "Card", "source": "src/design-system/components/Card.tsx", "aliases": ["panel"], "guidance": ["components"] },
+    {
+      "name": "Stack",
+      "source": "src/design-system/components/Stack.tsx",
+      "props": { "gap": { "allowed": [0, 1, 2, 3, 4, 5, 6, 7] }, "direction": { "allowed": ["row", "column"] } },
+      "guidance": ["spacing", "components"]
+    },
+    { "name": "PageHeader", "source": "src/design-system/components/PageHeader.tsx", "props": { "title": { "required": true } }, "guidance": ["patterns"] },
+    {
+      "name": "DataTable",
+      "source": "src/design-system/components/DataTable.tsx",
+      "replaces": ["table"],
+      "aliases": ["table"],
+      "props": { "status": { "required": true, "allowed": ["loading", "error", "ready"] }, "emptyState": { "required": true } },
+      "guidance": ["components", "states"]
+    },
+    { "name": "EmptyState", "source": "src/design-system/components/EmptyState.tsx", "props": { "title": { "required": true } }, "guidance": ["states", "content"] },
+    {
+      "name": "Alert",
+      "source": "src/design-system/components/Alert.tsx",
+      "aliases": ["banner", "callout", "notice"],
+      "props": { "tone": { "required": true, "allowed": ["info", "success", "warning", "danger"] } },
+      "guidance": ["components", "content"]
+    },
+    { "name": "StatCard", "source": "src/design-system/components/StatCard.tsx", "aliases": ["kpi", "metric card"], "props": { "label": { "required": true } }, "guidance": ["patterns"] },
+    { "name": "FilterBar", "source": "src/design-system/components/FilterBar.tsx", "aliases": ["toolbar"], "guidance": ["patterns"] },
+    { "name": "Spinner", "source": "src/design-system/components/Spinner.tsx", "aliases": ["loader"], "props": { "label": { "required": true } }, "guidance": ["states"] },
+    { "name": "AppShell", "source": "src/design-system/components/AppShell.tsx", "guidance": ["patterns"] }
+  ],
+  "patterns": [
+    {
+      "id": "filterable-list",
+      "name": "Filterable list",
+      "reference": "src/pages/OrdersPage.tsx",
+      "description": "Page header with one primary action, a filter bar, and a data table that handles loading, empty and error states.",
+      "guidance": ["patterns", "states"]
+    },
+    {
+      "id": "form-page",
+      "name": "Form page",
+      "reference": "src/pages/NewOrderPage.tsx",
+      "description": "Single-column form in a card: labelled fields, inline validation on submit, one primary and one secondary action.",
+      "guidance": ["patterns", "states"]
+    },
+    {
+      "id": "dashboard-summary",
+      "name": "Dashboard summary",
+      "reference": "src/pages/OverviewPage.tsx",
+      "description": "Row of stat cards followed by cards that summarise recent activity with links to the full lists.",
+      "guidance": ["patterns"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "color/semantic-tokens",
+      "version": 1,
+      "title": "Colors come from semantic tokens",
+      "category": "mandatory",
+      "description": "Every color in CSS, inline styles and color props is a semantic color token, var(--color-*).",
+      "rationale": "Literal colors drift from the palette, break theming, and hide contrast decisions from review.",
+      "verify": { "by": "check", "check": "no-hardcoded-color" },
+      "guidance": ["color", "tokens"],
+      "remediation": "Replace the literal with the semantic token for its purpose (text, surface, border, action, status). If no token fits, ask the design-system team for one instead of adding a value.",
+      "examples": [
+        { "file": "src/pages/Example.css", "code": ".total { color: var(--color-text-secondary); }", "expect": "pass" },
+        { "file": "src/pages/Example.css", "code": ".total { color: #475569; }", "expect": "fail" },
+        { "file": "src/pages/Example.tsx", "code": "export const Late = () => <p style={{ color: 'red' }}>Late</p>;", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "spacing/scale",
+      "version": 1,
+      "title": "Spacing uses the spacing scale",
+      "category": "mandatory",
+      "description": "Margins, paddings and gaps use the --space-* tokens (or 0 and auto).",
+      "rationale": "A fixed 4px-based scale keeps rhythm consistent across screens and lets density change globally.",
+      "verify": { "by": "check", "check": "spacing-scale" },
+      "guidance": ["spacing"],
+      "remediation": "Use the nearest --space-* step. For layout between components prefer <Stack gap={n}> over margins.",
+      "examples": [
+        { "file": "src/pages/Example.css", "code": ".row { padding: var(--space-3) var(--space-4); }", "expect": "pass" },
+        { "file": "src/pages/Example.css", "code": ".row { padding: 10px 18px; }", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "typography/scale",
+      "version": 1,
+      "title": "Font sizes use the type scale",
+      "category": "mandatory",
+      "description": "font-size uses the --font-size-* tokens. Line heights and the font shorthand are not checked.",
+      "rationale": "Six sizes, each with a defined use, keep the hierarchy readable; one-off sizes blur it.",
+      "verify": { "by": "check", "check": "spacing-scale", "options": { "properties": ["font-size"], "tokenPrefix": "--font-size-", "units": ["px", "rem"] } },
+      "guidance": ["typography"],
+      "remediation": "Use the --font-size-* token for the text's role (see the typography table). If no size fits, ask the design-system owners for a token instead of adding a one-off size.",
+      "examples": [
+        { "file": "src/pages/Example.css", "code": ".hint { font-size: var(--font-size-sm); }", "expect": "pass" },
+        { "file": "src/pages/Example.css", "code": ".hint { font-size: 100%; line-height: 20px; }", "expect": "pass", "note": "Percentages are relative, and line heights are a different property." },
+        { "file": "src/pages/Example.css", "code": ".hint { font-size: 13px; }", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "tokens/semantic-only",
+      "version": 1,
+      "title": "Only defined semantic tokens are referenced",
+      "category": "mandatory",
+      "description": "var() references point at defined semantic tokens, and tokens are defined only in the token file. Primitive --palette-* tokens are internal to the token file.",
+      "rationale": "Primitives describe raw values, not intent; using them bypasses theming. Misspelled tokens silently fall back to nothing.",
+      "verify": { "by": "check", "check": "token-usage" },
+      "guidance": ["tokens"],
+      "remediation": "Use the semantic token that expresses the intent; the suggestion lists tokens with the same value.",
+      "examples": [
+        { "file": "src/pages/Example.css", "code": ".a { color: var(--color-text-primary); }", "expect": "pass" },
+        { "file": "src/pages/Example.css", "code": ".a { color: var(--palette-blue-600); }", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "styles/no-important",
+      "version": 1,
+      "title": "No !important in application CSS",
+      "category": "mandatory",
+      "description": "Application CSS never forces a declaration with !important. The design system and the token sources (src/design-system/**) are out of scope.",
+      "rationale": "!important overrides design-system styles and states (focus, disabled, error) from outside, and every later fix needs another !important to win.",
+      "verify": { "by": "check", "check": "no-important" },
+      "scope": { "exclude": ["src/design-system/**"] },
+      "remediation": "Remove !important. If the declaration then loses, use the component's variant or prop, or fix the selector's specificity or order.",
+      "examples": [
+        { "file": "src/pages/Example.css", "code": ".notice { display: none; }", "expect": "pass" },
+        { "file": "src/pages/Example.css", "code": ".notice { content: \"!important\"; } /* never use !important */", "expect": "pass", "note": "Comments and strings are not declaration flags." },
+        { "file": "src/pages/Example.css", "code": ".notice { display: none !important; }", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "components/design-system-controls",
+      "version": 1,
+      "title": "Use design-system controls",
+      "category": "required-pattern",
+      "description": "Application code renders buttons, links, form fields and tables through design-system components, not raw HTML elements.",
+      "rationale": "The components carry focus handling, disabled and loading states, accessible labelling and tokens; raw elements lose all of that.",
+      "verify": { "by": "check", "check": "raw-element" },
+      "scope": { "exclude": ["src/design-system/**"] },
+      "guidance": ["components"],
+      "remediation": "Replace the raw element with the design-system component named in the finding.",
+      "examples": [
+        { "file": "src/pages/Example.tsx", "code": "import { Button } from '../design-system';\nexport const A = () => <Button>Save</Button>;", "expect": "pass" },
+        { "file": "src/pages/Example.tsx", "code": "export const A = () => <button>Save</button>;", "expect": "fail" }
+      ]
+    },
+    {
+      "id": "components/prop-contracts",
+      "version": 1,
+      "title": "Component contracts are satisfied",
+      "category": "required-pattern",
+      "description": "Design-system components get their required props and only approved values, including the props that drive loading, empty and error states.",
+      "rationale": "A data table without status or empty-state props renders a blank area while loading or when there is no data.",
+      "verify": { "by": "check", "check": "component-props" },
+      "guidance": ["components", "states"],
+      "remediation": "Pass the missing prop or use an approved value; the component catalog lists each contract.",
+      "examples": [
+        {
+          "file": "src/pages/Example.tsx",
+          "code": "import { DataTable } from '../design-system';\nexport const T = () => <DataTable columns={[]} rows={[]} />;",
+          "expect": "fail"
+        },
+        {
+          "file": "src/pages/Example.tsx",
+          "code": "import { Badge } from '../design-system';\nexport const B = () => <Badge tone=\"success\">Paid</Badge>;",
+          "expect": "pass"
+        }
+      ]
+    },
+    {
+      "id": "components/reuse-existing",
+      "version": 1,
+      "title": "Reuse existing components before creating new ones",
+      "category": "preferred",
+      "description": "New components should not re-implement something the design system already provides.",
+      "rationale": "Parallel implementations diverge in states, accessibility and visual details.",
+      "verify": { "by": "check", "check": "duplicate-component" },
+      "guidance": ["components", "new-patterns"],
+      "remediation": "Use or compose the existing component. If the new component is genuinely different, rename it and explain why in the pull request."
+    },
+    {
+      "id": "patterns/provenance",
+      "version": 1,
+      "title": "New patterns are reviewed",
+      "category": "preferred",
+      "description": "Changed components are compared with reference patterns and existing components. Novel patterns are allowed but need a design review.",
+      "rationale": "New patterns are how the system grows; reviewing them keeps growth deliberate instead of accidental.",
+      "verify": {
+        "by": "check",
+        "check": "pattern-provenance",
+        "options": { "novel": "review", "modified": "notice", "insufficientEvidence": "notice", "minElements": 3 }
+      },
+      "scope": { "exclude": ["src/design-system/**"] },
+      "guidance": ["patterns", "new-patterns"],
+      "remediation": "Link the guidance that justifies the pattern in the pull request, or reuse the nearest reference pattern."
+    },
+    {
+      "id": "governance/shared-change-review",
+      "version": 1,
+      "title": "Shared design-system changes need owner review",
+      "category": "mandatory",
+      "enforcement": "review",
+      "description": "Changes to tokens or design-system components are reported with their downstream usages and need review by the design-system owners.",
+      "rationale": "A one-line token change can restyle every screen; the people who own the system should see the blast radius.",
+      "verify": { "by": "check", "check": "shared-change" },
+      "scope": { "include": ["src/design-system/**"] },
+      "guidance": ["governance"],
+      "remediation": "Request review from @acme/design-system and check the affected screens in the visual diff."
+    },
+    {
+      "id": "visual/changes-reviewed",
+      "version": 1,
+      "title": "Visual changes are reviewed",
+      "category": "preferred",
+      "description": "Rendered screens that differ from the base revision are shown for human review. A difference is not a violation by itself.",
+      "rationale": "Screenshots catch effects that source analysis cannot attribute, such as a token change cascading through many screens.",
+      "verify": { "by": "check", "check": "visual-diff" },
+      "guidance": ["patterns"],
+      "remediation": "Confirm each highlighted region is intended."
+    },
+    {
+      "id": "a11y/no-new-violations",
+      "version": 1,
+      "title": "No new automated accessibility violations",
+      "category": "preferred",
+      "description": "axe-core (WCAG 2.x A and AA rules) runs on every captured state. Violations that the base revision did not have are shown for review.",
+      "rationale": "Components come accessible by default; a change that adds a contrast, label or landmark problem works around them.",
+      "verify": { "by": "check", "check": "accessibility" },
+      "remediation": "Fix the element axe names (the rule link explains how), or confirm in review that it is a false positive."
+    },
+    {
+      "id": "layout/one-primary-action",
+      "version": 1,
+      "title": "One primary action per view",
+      "category": "preferred",
+      "description": "Each page or dialog has at most one primary button; other actions use secondary or ghost buttons.",
+      "rationale": "Several primary buttons compete for attention and make the main task unclear.",
+      "verify": { "by": "semantic" },
+      "guidance": ["patterns", "components"],
+      "remediation": "Keep the main action primary and demote the others to secondary or ghost."
+    },
+    {
+      "id": "states/complete-and-explained",
+      "version": 1,
+      "title": "States are complete and explained",
+      "category": "advisory",
+      "description": "Views that load data handle loading, empty and error states, and their copy says what happened and what to do next.",
+      "rationale": "Missing or vague states leave users stuck; most support tickets start at an empty or failed screen.",
+      "verify": { "by": "semantic" },
+      "guidance": ["states", "content"],
+      "remediation": "Add the missing state and write copy that names the cause and the next step."
+    },
+    {
+      "id": "patterns/justified-novelty",
+      "version": 1,
+      "title": "New patterns build on existing guidance",
+      "category": "advisory",
+      "description": "A new pattern composes existing components and tokens and follows the documented principles, rather than introducing a parallel visual language.",
+      "rationale": "Novelty is fine when it extends the system coherently.",
+      "verify": { "by": "semantic" },
+      "guidance": ["new-patterns", "patterns"],
+      "remediation": "Compose from design-system components and explain the need in the pull request."
+    }
+  ],
+  "exceptions": [
+    {
+      "id": "legacy-partner-promo",
+      "rules": ["color/semantic-tokens"],
+      "paths": ["src/legacy/PartnerPromo.*"],
+      "reason": "The partner promo uses the partner's contractual brand colors; it is removed when the campaign ends.",
+      "approvedBy": "@acme/design-system",
+      "expires": "2027-03-31"
+    }
+  ],
+  "visual": {
+    "viewports": [
+      { "id": "desktop", "width": 1280, "height": 800 },
+      { "id": "mobile", "width": 390, "height": 844 }
+    ],
+    "routes": [
+      { "id": "overview", "path": "/", "states": [{ "id": "default", "waitFor": "main h1" }] },
+      {
+        "id": "orders",
+        "path": "/orders",
+        "states": [
+          { "id": "default", "waitFor": "table" },
+          { "id": "loading", "query": "state=loading", "waitFor": "[role=status]" },
+          { "id": "empty", "query": "state=empty", "waitFor": "main h1" },
+          { "id": "error", "query": "state=error", "waitFor": "[role=alert]" }
+        ]
+      },
+      {
+        "id": "new-order",
+        "path": "/orders/new",
+        "states": [
+          { "id": "default", "waitFor": "form" },
+          { "id": "validation-errors", "actions": [{ "click": "form button[type=submit]" }], "waitFor": "[aria-invalid=true]" }
+        ]
+      },
+      { "id": "settings", "path": "/settings", "states": [{ "id": "default", "waitFor": "main h1" }] }
+    ],
+    "mask": ["[data-volatile]"]
+  },
+  "semanticReview": {
+    "enabled": true,
+    "maxFiles": 12,
+    "maxFileChars": 20000,
+    "includeScreenshots": false,
+    "guidance": ["states", "patterns", "new-patterns", "content"]
+  },
+  "failurePolicy": { "source": "fail-closed", "visual": "review", "semantic": "review" }
+}

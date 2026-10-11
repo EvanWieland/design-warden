@@ -1,0 +1,7 @@
+[
+  {
+    "file": "src/pages/SettingsPage.tsx",
+    "find": "              <p className=\"settings-page__save-status\">",
+    "replace": "              <button type=\"button\" className=\"settings-page__export\" onClick={() => window.print()}>Export settings</button>\n              <p className=\"settings-page__save-status\">"
+  }
+]

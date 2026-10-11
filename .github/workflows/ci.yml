@@ -1,0 +1,58 @@
+# CI for this repository: type checks, unit and integration tests, browser tests,
+# the demo self-check, the deterministic benchmark, the npm packaging test and a dependency audit. No secrets are used.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Actions are pinned to full commit SHAs; the comment names the version (tests/repo.test.ts checks this).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Install Chromium for capture and browser tests
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Unit and integration tests (scenarios, benchmark, visual)
+        run: pnpm test
+
+      - name: Browser tests (inspector and demo)
+        run: pnpm test:e2e
+
+      - name: The demo stays compliant with its own policy
+        run: pnpm check:demo
+
+      - name: Deterministic benchmark
+        run: pnpm eval
+
+      - name: npm packages build, pack, install into a fresh project and run
+        run: pnpm test:pack
+
+      # Fails on new high or critical advisories, even when a pull request did not touch dependencies.
+      - name: Known vulnerabilities in dependencies
+        run: pnpm audit --audit-level high

@@ -1,0 +1,5 @@
+.welcome {
+  padding: var(--space-3);
+  color: var(--color-text);
+  background: var(--color-bg);
+}

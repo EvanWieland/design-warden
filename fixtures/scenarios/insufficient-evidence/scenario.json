@@ -1,0 +1,20 @@
+{
+  "id": "insufficient-evidence",
+  "number": 8,
+  "title": "Insufficient evidence",
+  "kind": "review",
+  "summary": "Adds administrator avatars to Settings whose background color comes from each person's profile data at runtime.",
+  "whyItMatters": "Static analysis cannot tell whether a runtime value is an approved color. Design Warden says so, as \"insufficient evidence\", and requests review instead of guessing pass or fail.",
+  "expected": {
+    "outcome": "review",
+    "findings": [
+      { "ruleId": "color/semantic-tokens", "file": "src/components/AssigneeAvatar.tsx", "line": 16, "outcome": "review", "messageIncludes": "assignee.color" },
+      { "ruleId": "patterns/provenance", "file": "src/components/AssigneeAvatar.tsx", "outcome": "info" },
+      { "ruleId": "patterns/provenance", "file": "src/pages/SettingsPage.tsx", "outcome": "info" }
+    ],
+    "provenance": [
+      { "component": "AssigneeAvatar", "classification": "insufficient-evidence" },
+      { "component": "SettingsPage", "classification": "modified" }
+    ]
+  }
+}

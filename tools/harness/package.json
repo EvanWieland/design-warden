@@ -1,0 +1,22 @@
+{
+  "name": "@design-warden/harness",
+  "version": "0.1.0",
+  "description": "Runs the seeded demo scenarios in isolated git workspaces and checks their expected outcomes.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@design-warden/cli": "workspace:*",
+    "@design-warden/core": "workspace:*",
+    "@design-warden/semantic-review": "workspace:*",
+    "@design-warden/source-analysis": "workspace:*",
+    "@design-warden/visual-analysis": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "5.0.3"
+  }
+}

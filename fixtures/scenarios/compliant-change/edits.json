@@ -1,0 +1,22 @@
+[
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "export function OrdersPage() {",
+    "replace": "const sortOptions: SelectOption<'newest' | 'total'>[] = [\n  { value: 'newest', label: 'Newest first' },\n  { value: 'total', label: 'Highest total' },\n];\n\nexport function OrdersPage() {"
+  },
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "  const result = useOrders({ search, status });\n",
+    "replace": "  const [sort, setSort] = useState<'newest' | 'total'>('newest');\n  const result = useOrders({ search, status });\n  const rows = sort === 'total' ? [...result.rows].sort((a, b) => b.total - a.total) : result.rows;\n"
+  },
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "<Select label=\"Status\" value={status} onChange={setStatus} options={statusOptions} />",
+    "replace": "<Select label=\"Status\" value={status} onChange={setStatus} options={statusOptions} />\n            <Select label=\"Sort by\" value={sort} onChange={setSort} options={sortOptions} />"
+  },
+  {
+    "file": "src/pages/OrdersPage.tsx",
+    "find": "            rows={result.rows}\n",
+    "replace": "            rows={rows}\n"
+  }
+]

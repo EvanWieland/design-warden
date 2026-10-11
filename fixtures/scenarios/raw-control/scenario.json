@@ -1,0 +1,16 @@
+{
+  "id": "raw-control",
+  "number": 3,
+  "title": "Raw control instead of a design-system component",
+  "kind": "violation",
+  "summary": "Adds an \"Export settings\" action to Settings as a raw <button> instead of the design-system Button.",
+  "whyItMatters": "A raw control loses the approved focus ring, disabled and loading states, sizing and tokens. Agents produce these when they don't know a component exists.",
+  "expected": {
+    "outcome": "fail",
+    "findings": [
+      { "ruleId": "components/design-system-controls", "file": "src/pages/SettingsPage.tsx", "line": 37, "outcome": "fail", "messageIncludes": "<button>" },
+      { "ruleId": "patterns/provenance", "file": "src/pages/SettingsPage.tsx", "outcome": "info", "messageIncludes": "modifies an established pattern" }
+    ],
+    "provenance": [{ "component": "SettingsPage", "classification": "modified" }]
+  }
+}

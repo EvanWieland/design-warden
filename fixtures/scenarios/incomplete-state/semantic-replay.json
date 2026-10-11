@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "ruleId": "states/complete-and-explained",
+      "verdict": "violation",
+      "confidence": "high",
+      "file": "src/pages/CustomersPage.tsx",
+      "line": 30,
+      "quote": "<DataTable caption=\"Customers\" columns={columns} rows={customers} rowKey={(row) => row.name} />",
+      "explanation": "The customer list loads data but defines no loading, empty or error state, so users see a blank card while it loads or when no customer has ordered.",
+      "guidance": ["states"],
+      "remediation": "Pass status and an EmptyState that says what happened and what to do next, as the Orders page does."
+    }
+  ]
+}

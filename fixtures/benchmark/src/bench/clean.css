@@ -1,0 +1,14 @@
+/* Benchmark: compliant page styles. Must produce no findings. */
+.invoices-page__footnote {
+  margin: 0;
+  padding-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  border-top: var(--border-width-default) solid var(--color-border-default);
+}
+
+@media (max-width: 640px) {
+  .invoices-page__footnote {
+    padding-top: var(--space-1);
+  }
+}

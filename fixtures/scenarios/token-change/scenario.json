@@ -1,0 +1,20 @@
+{
+  "id": "token-change",
+  "number": 6,
+  "title": "Shared design-token change",
+  "kind": "review",
+  "summary": "Trials a violet brand by changing two primitive blue tokens. Every semantic token built on them changes too, restyling primary actions, links, focus rings and info badges everywhere.",
+  "whyItMatters": "A two-line diff with application-wide effects. Design Warden follows the aliases, lists every affected token and usage, and (with visual capture) the changed screens, so owners can review the blast radius.",
+  "expected": {
+    "outcome": "review",
+    "findings": [
+      {
+        "ruleId": "governance/shared-change-review",
+        "file": "src/design-system/tokens.css",
+        "line": 22,
+        "outcome": "review",
+        "messageIncludes": "7 design token(s) changed"
+      }
+    ]
+  }
+}

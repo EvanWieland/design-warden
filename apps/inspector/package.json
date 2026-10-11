@@ -1,0 +1,26 @@
+{
+  "name": "@design-warden/inspector",
+  "private": true,
+  "description": "Local web UI for Design Warden reports and the seeded demo scenarios.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "node server/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@design-warden/cli": "workspace:*",
+    "@design-warden/core": "workspace:*",
+    "@design-warden/harness": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

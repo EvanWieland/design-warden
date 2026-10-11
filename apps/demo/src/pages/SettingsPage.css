@@ -1,0 +1,9 @@
+/* Single-column forms stay at a readable width inside a wide card. */
+.settings-page__form {
+  max-width: 40rem;
+}
+
+.settings-page__save-status {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}

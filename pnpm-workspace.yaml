@@ -1,0 +1,14 @@
+packages:
+  - packages/*
+  - apps/*
+  - tools/*
+
+# Supply-chain hardening. pnpm >= 11 already defaults to minimumReleaseAge: 1440,
+# strictDepBuilds: true and blockExoticSubdeps: true; they are restated here so the
+# policy is visible in review and survives a pnpm downgrade.
+minimumReleaseAge: 1440
+strictDepBuilds: true
+blockExoticSubdeps: true
+# Fail the install if a package's publishing trust level (e.g. provenance) drops
+# compared to its earlier releases.
+trustPolicy: no-downgrade
