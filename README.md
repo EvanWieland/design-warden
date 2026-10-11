@@ -185,7 +185,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs | PR comments |
 | Runs from source on Node ≥ 24.11; npm packages build to `dist/` and are tested by packing and installing them | Publishing to npm (the packages are still `private`); Node versions other than 24 |
 
-The tool was developed and tested on Windows 11. CI on Ubuntu has run once on GitHub: install, type check and 267 of 268 tests passed. The failing test's fix is not yet verified on Linux, and the later steps (browser tests, packaging, audit) have not run there.
+The tool was developed on Windows 11. CI passes every step on Ubuntu, and the pull-request workflow's check and visual jobs ran as designed on GitHub; macOS is untested.
 
 ## Documentation
 

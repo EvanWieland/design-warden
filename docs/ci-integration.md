@@ -51,7 +51,7 @@ A job to add next to `check` in the example workflow (same checkout and trusted-
 
 ```yaml
   code-scanning:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Fork pull requests get a read-only token, which cannot upload.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -91,7 +91,7 @@ If the policy has an `accessibility` rule, the `visual` job's captures also run 
 
 `actions/checkout` uses `fetch-depth: 0`, because the merge base needs history.
 
-**Pinned actions and image.** Every `uses:` names a full commit SHA, with the version in a comment, and `tests/repo.test.ts` fails on an unpinned one. On 2026-10-10 they were pinned to `actions/checkout` v7.0.1, `actions/setup-node` v7.1.0 and `actions/upload-artifact` v7.0.2. They were moved up from v5, v5 and v4: setup-node v5 caches automatically when `package.json` has a `packageManager` field, which here names pnpm, before corepack has installed it; from v6 on, it only does this for npm. To update a pin, look the tag up with `git ls-remote https://github.com/actions/<name> refs/tags/<tag> "refs/tags/<tag>^{}"`. For an annotated tag, use the `^{}` (peeled) commit, not the tag object. The Playwright container is pinned by its multi-platform index digest (looked up on 2026-10-11 from `https://mcr.microsoft.com/v2/playwright/manifests/v1.64.0-noble`, header `Docker-Content-Digest`), and the same test keeps its tag equal to the `playwright` npm version.
+**Pinned actions and image.** Every `uses:` names a full commit SHA, with the version in a comment, and `tests/repo.test.ts` fails on an unpinned one. On 2026-10-10 they were pinned to `actions/checkout` v7.0.1, `actions/setup-node` v7.1.0 and `actions/upload-artifact` v7.0.2. They were moved up from v5, v5 and v4: setup-node v5 caches automatically when `package.json` has a `packageManager` field, which here names pnpm, before corepack has installed it; from v6 on, it only does this for npm. To update a pin, look the tag up with `git ls-remote https://github.com/actions/<name> refs/tags/<tag> "refs/tags/<tag>^{}"`. For an annotated tag, use the `^{}` (peeled) commit, not the tag object. The Playwright container is pinned by its multi-platform index digest (looked up on 2026-10-11 from `https://mcr.microsoft.com/v2/playwright/manifests/v1.64.0-noble`, header `Docker-Content-Digest`), and the same test keeps its tag equal to the `playwright` npm version. Runner images are pinned as well (`ubuntu-24.04`): a `-latest` label moves to a new OS on GitHub's schedule (`ubuntu-latest` becomes Ubuntu 26.04 from 2026-10-19), and the test fails on one.
 
 **What was verified (2026-10-10).**
 - The workflow files parse as valid YAML.
@@ -100,7 +100,10 @@ If the policy has an `accessibility` rule, the `visual` job's captures also run 
   - `check`: exit 1, one `::error` annotation, step summary and outputs;
   - both builds, `capture --serve` (16/16 states each), and the comparison with `--only visual`: exit 0, only the visual review finding;
   - the semantic step with the replay provider instead of `anthropic`, plus `--only semantic`: exit 0, only the model finding.
-- The workflows have **not** been executed on GitHub from this environment. The container, the `actions/*` steps, `$GITHUB_ENV` and corepack on the runner are untested. Check the first run.
+- **On GitHub (2026-10-11),** a test pull request ([#1](https://github.com/EvanWieland/design-warden/pull/1), private repository, closed unmerged) carried the `hardcoded-color` and `token-change` scenarios. Run 38166503036:
+  - `check`: exit 1, a failure annotation on `apps/demo/src/pages/OverviewPage.css:3` with the suggested token, and a warning on `tokens.css:22` for the shared token change;
+  - `visual`: in the container, both builds captured 16/16 states, and every changed screen was reported for review;
+  - `semantic`: skipped, as designed, because `check` failed (it also needs the `ANTHROPIC_API_KEY` secret). Its live path has not run on GitHub.
 
 ## Committed baselines
 

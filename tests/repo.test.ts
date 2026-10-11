@@ -58,6 +58,13 @@ describe('repository invariants', () => {
     expect(unpinned).toEqual([]);
   });
 
+  // `-latest` labels move to a new OS on GitHub's schedule (ubuntu-latest → 26.04 from 2026-10-19), changing CI underneath us.
+  it('pins every runner image to an OS version, in the workflows and the docs', () => {
+    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
+    const floating = files.flatMap((f) => (read(f).match(/^.*runs-on:.*-latest.*$/gm) ?? []).map((line) => `${f}: ${line.trim()}`));
+    expect(floating).toEqual([]);
+  });
+
   // Baselines are compared only within one environment, so the container must not move under a tag.
   it('runs visual capture in the Playwright container of the pinned npm version, pinned by digest', () => {
     const { dependencies } = JSON.parse(read('packages/visual-analysis/package.json')) as { dependencies: Record<string, string> };

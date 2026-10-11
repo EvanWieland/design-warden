@@ -94,9 +94,31 @@ On 2026-10-10, after 0.1.0 was complete, the requester asked to "build everythin
 
 **Needs the requester.** Do not attempt these without them:
 - the live-model evaluation (`pnpm eval:semantic --provider anthropic`): needs an API key and consent to send the scenario files;
-- commits and pushes: only on an explicit request. The repository is https://github.com/EvanWieland/design-warden (private); `main` holds the initial commit `6a86900`, and later work is uncommitted until asked;
-- Linux runs happen only in GitHub Actions (this machine has no WSL, Docker or `gh`), so they need a push. macOS has never run.
+- commits and pushes: only on an explicit request. The repository is https://github.com/EvanWieland/design-warden (private);
+- Linux runs happen only in GitHub Actions (this machine has no WSL, Docker or `gh`), so they need a push. CI passes every step on Ubuntu since `71595b3`. macOS has never run.
+- a first pull request, which would run the Design Warden workflow (check, visual and semantic jobs) on GitHub for the first time (open question 11);
+- branch protection for `main` and the workflow file (GitHub settings), which the workflow's trust model assumes;
 - npm: publishing the `@design-warden/*` packages, which are still `private` (the name and the organization are reserved; see the 2026-10-11 npm entry).
+
+## Next: finishing backlog
+
+On 2026-10-11 the requester asked to "finish the project": verify what was never run on GitHub, close the README's "Not yet" column (implement, or rule out with reasons), and release to npm. Decisions taken with them that day: the live-model evaluation is skipped; the packages are published publicly on npm while the GitHub repository stays private. Each item follows the build-out process above (tests first, docs and numbers, full verification, a progress-log entry).
+
+| # | Item | Done when | Notes | Status |
+|---|---|---|---|---|
+| C1 | Pull-request workflow on GitHub | A test PR runs `design-warden.yml`: the check job fails on a seeded violation with annotations, the visual job reports changed screens; anything that breaks is fixed; the PR is closed unmerged | Open question 11 | Done 2026-10-11 |
+| C2 | PR comments | The workflow keeps one Design Warden comment per pull request up to date, written by a job that never checks out or runs pull-request code; the markdown it posts comes from the JSON reports; tested | `pull-requests: write` only on that job; forks get a read-only token | |
+| C3 | CSS-in-JS object styles | `css({…})`, `styled.x({…})`, `styled(X)({…})`, the `css` prop and nested selector objects are read like inline style objects; `sx` reports only unambiguous raw CSS (theme paths and numeric theme units are not raw values); benchmark labels; docs | | |
+| C4 | Tailwind theme color classes | Color utilities whose name is a token (`bg-primary`) or a default-palette color (`bg-red-500`) are read as `var(--color-…)` references and judged by `token-usage`; sizes and keywords (`text-sm`, `border-2`) are not; benchmark labels; docs | A project that uses the default palette on purpose lists Tailwind's theme file as a token source | |
+| C5 | Globally registered Vue components | `app.component('Name', Comp)` / `Vue.component(…)` registrations resolve template tags like imports do | | |
+| C6 | Rename detection for `--base-dir` | Deleted and added files with identical or mostly identical content are paired as renames, so unchanged lines stay pre-existing | | |
+| C7 | Region-to-source hints | Each changed visual region names the source files that style its nearest element, labelled as a heuristic | Or ruled out with a reason | |
+| C8 | Scope decisions | Embeddings ruled out with a reason; providers reachable through the OpenAI-compatible adapter documented as untested; the README's "Not yet" column updated | | |
+| C9 | Node 22 for the npm packages | The published `dist/` runs on Node 22 LTS, tested in CI; `engines` says so; the repository itself stays on Node 24 | Or a recorded reason why not | |
+| C10 | Repository protection | CODEOWNERS for the workflows and policies; a branch ruleset if the plan allows it, otherwise documented | | |
+| C11 | macOS | One manually triggered CI run on macOS passes, or its failures are fixed | Costs 10x Actions minutes on a private repository: run once | |
+| C12 | Deferred minors | The starter policy's `$schema` resolves after copying; the Windows long-path build failure is in troubleshooting | | |
+| C13 | npm release 0.2.0 | `design-warden` (unscoped) runs the CLI, the five scoped packages are public, all at 0.2.0; dry-run packs verified; published with the requester's 2FA approval; `npx design-warden` works from an empty directory; docs say how to install | Last, after the final review | |
 
 ## Risks
 
@@ -479,3 +501,21 @@ On 2026-10-10, after 0.1.0 was complete, the requester asked to "build everythin
     - The hero and the diff are framed (rounded border, fade at the bottom); the AI panel keeps its own card border, with transparent corners. All RGBA at 2x, 147 to 439 KB. All README links and image paths resolve (41 files, 0 broken links).
     - The README's status line now reflects the first CI run.
   - Independent review: the fix is correct and complete. It traced `gitChangeSet` (tracked changes plus untracked files that git does not ignore), confirmed the base commit is made before the link exists and that the inspector uses the same `runScenario`, and found nothing else that is junction-specific. Its four doc and image findings are fixed: the README overstated the CI status; the diff's alt text counted a region below the crop; the AI panel image was not framed (light corners on dark backgrounds); a sliver of the card above the hero's result panel showed.
+- 2026-10-11 (CI green on Ubuntu): pushed `71595b3` (the Linux fix and the README visuals) at the requester's request. CI run 38163485001 on `ubuntu-latest` passed every step:
+  - `pnpm typecheck`;
+  - `pnpm test`: 17 files, **268 passed**;
+  - `pnpm test:e2e`: **11 passed**;
+  - `pnpm check:demo`: PASS (0 blocking, 3 suppressed);
+  - `pnpm eval`: All 140 / 1 / 1, 99.3% precision and recall, with the same two documented mismatches as on Windows;
+  - `pnpm test:pack`: 1 passed;
+  - `pnpm audit --audit-level high`: no known vulnerabilities.
+  - The README status line now says CI passes on Ubuntu, the pull-request workflow has not run on GitHub yet, and macOS is untested.
+- 2026-10-11 (C1: the pull-request workflow on GitHub). Backlog C1–C13 added above. Decisions taken with the requester: skip the live-model evaluation; publish publicly on npm with the repository kept private.
+  - Test PR #1 (branch `try/pr-workflow`, commit `b0c7b92`: the `hardcoded-color` scenario plus the `token-change` edits applied to `apps/demo`), opened through the REST API.
+  - Design Warden run 38166503036:
+    - `check`: exit 1 ("FAIL - 1 blocking, 1 need review"); check-run annotations: failure on `apps/demo/src/pages/OverviewPage.css:3` (color/semantic-tokens, with the suggested token) and warning on `apps/demo/src/design-system/tokens.css:22` (governance/shared-change-review: 7 tokens, 10 usages);
+    - `visual`: in the pinned container, "Captured 16/16 states" for base and head, and a visual review request per changed screen (overview 21.66% of pixels, because the scenario adds a paragraph; the others 0.30–1.02%);
+    - `semantic`: skipped, because `check` failed (and there is no key).
+  - The CI run on the same PR failed 5 tests, as it must: the tests need a pristine demo, and the PR edited it ("edit to src/design-system/tokens.css expected exactly one match, found 0. Has the demo changed?").
+  - PR #1 closed unmerged, its branch deleted. Open question 11 answered; ci-integration.md's "What was verified" and the README status updated.
+  - GitHub announced that `ubuntu-latest` moves to Ubuntu 26.04 from 2026-10-19, so every runner is pinned to `ubuntu-24.04`. New test in `tests/repo.test.ts`: RED (8 floating labels: 7 in the workflows, 1 in ci-integration.md), then GREEN (8/8).
