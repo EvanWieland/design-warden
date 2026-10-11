@@ -98,7 +98,7 @@ On 2026-10-10, after 0.1.0 was complete, the requester asked to "build everythin
 - Linux runs happen only in GitHub Actions (this machine has no WSL, Docker or `gh`), so they need a push. CI passes every step on Ubuntu since `71595b3`. macOS has never run.
 - a first pull request, which would run the Design Warden workflow (check, visual and semantic jobs) on GitHub for the first time (open question 11);
 - branch protection for `main` and the workflow file (GitHub settings), which the workflow's trust model assumes;
-- npm: publishing the `@design-warden/*` packages, which are still `private` (the name and the organization are reserved; see the 2026-10-11 npm entry).
+- npm releases: publishing needs the requester's 2FA approval (one link per package, valid about 5 minutes); 0.2.0 is published (see the 2026-10-11 release entry).
 
 ## Next: finishing backlog
 
@@ -117,8 +117,8 @@ On 2026-10-11 the requester asked to "finish the project": verify what was never
 | C9 | Node 22 for the npm packages | The published `dist/` runs on Node 22 LTS, tested in CI; `engines` says so; the repository itself stays on Node 24 | Or a recorded reason why not | Done 2026-10-11 |
 | C10 | Repository protection | CODEOWNERS for the workflows and policies; a branch ruleset if the plan allows it, otherwise documented | | Done 2026-10-11 |
 | C11 | macOS | One manually triggered CI run on macOS passes, or its failures are fixed | Costs 10x Actions minutes on a private repository: run once | Done 2026-10-11 |
-| C12 | Deferred minors | The starter policy's `$schema` resolves after copying; the Windows long-path build failure is in troubleshooting | | |
-| C13 | npm release 0.2.0 | `design-warden` (unscoped) runs the CLI, the five scoped packages are public, all at 0.2.0; dry-run packs verified; published with the requester's 2FA approval; `npx design-warden` works from an empty directory; docs say how to install | Last, after the final review | |
+| C12 | Deferred minors | The starter policy's `$schema` resolves after copying; the Windows long-path build failure is in troubleshooting | | Done 2026-10-11 |
+| C13 | npm release 0.2.0 | `design-warden` (unscoped) runs the CLI, the five scoped packages are public, all at 0.2.0; dry-run packs verified; published with the requester's 2FA approval; `npx design-warden` works from an empty directory; docs say how to install | Last, after the final review | Done 2026-10-11 |
 
 ## Risks
 
@@ -595,3 +595,20 @@ On 2026-10-11 the requester asked to "finish the project": verify what was never
   - Benchmark: the corpus became a Tailwind project (`tailwind.css`), and the audit's proposed cases were added with labels taken from the documented contract: 13 new labels, all hits, plus four negative files. `pnpm eval`: 28 files, 172 expected, **171 / 1 / 1** (99.4% / 99.4%), the same two documented mismatches; insufficient evidence 15.1%. The pinned baseline is now tp 171.
   - Deferred (minor): SCSS `&__title` nesting is not resolved for hints (message text only). Everything else the reviews raised is fixed.
   - Verification: `pnpm typecheck` exit 0; `pnpm test` **303 passed**; `pnpm check:demo` PASS, 17/17; `pnpm scenario run all` 11/11; `pnpm eval` 171 / 1 / 1. Docs: rules.md, security.md (P12 and token permissions), ci-integration.md, CHANGELOG, README, evaluation.md, the ADRs.
+- 2026-10-11 (C12 and C13: release 0.2.0).
+  - Prepared on branch `release/0.2.0`, commit `8c354c4`:
+    - `@design-warden/cli` was renamed `design-warden` (9 references, and the lockfile through `pnpm install`), so `npx design-warden` runs the CLI; the four libraries stay scoped;
+    - all five packages are at 0.2.0, with `private` removed and `publishConfig.access: public`, and each ships a LICENSE copy and a README (the `design-warden` README stands alone, because the repository is private);
+    - `design-warden` ships `starter/` (the starter policy and guidance, kept identical to `examples/policy` by a new repo test). The starter's `$schema` now points at `https://cdn.jsdelivr.net/npm/@design-warden/core@0.2/schema/policy.schema.json`, which closes the deferred `$schema` minor;
+    - docs install from npm instead of running from this checkout (README, getting-started, ci-integration with pinned `npx --yes design-warden@0.2.0`, examples/policy, the workflow header), and the CHANGELOG cuts `[0.2.0]`;
+    - the pack test follows the new name, reads the version from the manifest, and checks LICENSE, README and the starter in the installed package. The README sample output and the hero screenshot come from real 0.2.0 runs.
+  - Verification of the release commit: locally, `pnpm typecheck` exit 0, `pnpm test` **304 passed**, check:demo PASS (17/17), scenarios 11/11, eval 171 / 1 / 1, `pnpm test:e2e` 11 passed, `pnpm test:pack` 1 passed, `pnpm audit` clean. On release PR #4: CI run 38174967471 (with Node 22) and Design Warden run 38174967469 both passed. The tarballs (`pnpm pack`) contain only `dist/`, LICENSE and README (plus `starter/`, and core's `schema/`), pin the internal dependencies to exactly 0.2.0, and the bin has its shebang.
+  - Publishing (`npm publish <tgz> --access public`, the five in parallel, through the fake-TTY preload that makes npm print its 2FA links):
+    - the first two attempts expired: each polled `/-/v1/done` (202 pending) for about 5 minutes, 97 times, then got a 404, because the approval links had not been opened in time. Nothing was published;
+    - the third attempt, after the requester signed in to npmjs.com first, printed `+ design-warden@0.2.0` and `+ @design-warden/{core,source-analysis,visual-analysis,semantic-review}@0.2.0`. npm said "being processed", and all five resolved after about four minutes (`npm view <pkg>@0.2.0`, 21:36 UTC). `design-warden` has `latest: 0.2.0` (versions 0.0.0-stage, 0.0.0, 0.2.0).
+  - From outside the repository:
+    - a fresh project ran `npm install --save-dev design-warden@0.2.0` (56 packages, 5 s); `npx design-warden --version` printed 0.2.0;
+    - with the starter copied in, `policy validate` passed, `policy test` gave 4/4, and `check` gave PASS with exit 0;
+    - an added `color: #d93025` gave FAIL with exit 1;
+    - `npx --yes design-warden@0.2.0 --version` in an empty directory printed 0.2.0.
+  - `main` was fast-forwarded to the release commit, which is tagged `v0.2.0`.
