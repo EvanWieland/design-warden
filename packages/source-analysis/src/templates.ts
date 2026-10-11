@@ -98,7 +98,7 @@ export const container = (expression: Node): Node => ({ type: 'JSXExpressionCont
 export const pascal = (tag: string) => tag.replace(/(^|-)([a-z0-9])/g, (_, __, c: string) => c.toUpperCase());
 
 /** Template elements as usages, resolved through the script's imports. Unimported component tags are global components. */
-export function templateUsages(file: ParsedFile, imports: ImportBinding[]): JsxUsage[] {
+export function templateUsages(file: ParsedFile, imports: ImportBinding[], globals?: ReadonlyMap<string, ImportBinding>): JsxUsage[] {
   const byLocal = new Map(imports.map((i) => [i.local, i]));
   const usages = new Map<TemplateElement, JsxUsage>();
   for (const el of file.template?.elements ?? []) {
@@ -107,13 +107,14 @@ export function templateUsages(file: ParsedFile, imports: ImportBinding[]): JsxU
     else if (!el.component) resolved = { kind: 'intrinsic', element: el.tag };
     else {
       // As in JSX: <Badge> per its import, <DS.Badge> through a namespace import, other dotted tags are components.
+      // A Vue tag without a local import resolves against global registrations; a local import wins, as in Vue.
       const name = pascal(el.tag);
       const parts = name.split('.');
-      const imp = byLocal.get(parts[0]!);
+      const imp = byLocal.get(parts[0]!) ?? (parts.length === 1 ? globals?.get(name) : undefined);
       resolved = !imp?.isDesignSystem
         ? { kind: 'component', name }
         : parts.length === 1
-          ? { kind: 'design-system', component: imp.imported === 'default' ? name : imp.imported }
+          ? { kind: 'design-system', component: imp.imported === 'default' ? imp.local : imp.imported }
           : parts.length === 2 && imp.imported === '*'
             ? { kind: 'design-system', component: parts[1]! }
             : { kind: 'component', name };

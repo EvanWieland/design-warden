@@ -447,6 +447,31 @@ describe('Vue single-file components', () => {
   });
 });
 
+describe('globally registered Vue components', () => {
+  const MAIN = [
+    "import { createApp } from 'vue';",
+    "import App from './App.vue';",
+    "import { Badge as DsBadge } from './ds';",
+    "import Pill from './app/Pill.vue';",
+    "createApp(App).component('AcmeBadge', DsBadge).component('local-pill', Pill).mount('#app');",
+    "angular.module('m').component('acmeCard', { template: '<p></p>' }); // an AngularJS component: not a registration of an import",
+  ].join('\n');
+
+  it('resolves template tags registered with app.component like imported components, in both spellings', async () => {
+    const vue = '<template>\n  <acme-badge>Late</acme-badge>\n  <AcmeBadge tone="loud">Soon</AcmeBadge>\n  <LocalPill />\n  <AcmeCard />\n</template>\n';
+    const d = await run({ 'src/main.ts': MAIN, 'src/app/Late.vue': vue }, 'components/props');
+    expect(d.map((x) => `${x.location?.line} ${x.verdict} ${x.message}`)).toEqual([
+      expect.stringMatching(/^2 violation .*tone/),
+      expect.stringMatching(/^3 violation .*loud/),
+    ]);
+  });
+
+  it('lets a local import win over a global registration, as Vue does', async () => {
+    const vue = "<template>\n  <AcmeBadge />\n</template>\n<script setup lang=\"ts\">\nimport AcmeBadge from './AcmeBadge.vue';\n</script>\n";
+    expect(await run({ 'src/main.ts': MAIN, 'src/app/Own.vue': vue }, 'components/props')).toEqual([]);
+  });
+});
+
 describe('template review fixes', () => {
   it('reads the Vue same-name shorthand :prop as passing the prop (Vue 3.4)', async () => {
     const vue = "<template>\n  <Badge :tone />\n  <DataTable :rows status=\"ready\" :empty-state />\n</template>\n<script setup lang=\"ts\">\nimport { Badge, DataTable } from '../ds';\nconst [tone, rows, emptyState] = ['info', [], 'None'];\n</script>\n";

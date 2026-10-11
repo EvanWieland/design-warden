@@ -16,7 +16,7 @@ import type { SourceCheck, SourceProject } from './check.ts';
 import { componentChecks } from './checks/components.ts';
 import { patternProvenance, projectChecks } from './checks/project.ts';
 import { styleChecks } from './checks/style.ts';
-import { componentDefinitions, importsOf, jsxUsages, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
+import { componentDefinitions, globalComponents, importsOf, jsxUsages, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
 import { fileKind, parseFile, type ParsedFile } from './parse.ts';
 import { computeProvenance, type ProvenanceOptions } from './provenance.ts';
 import { createTokenSet, readTokenDefs } from './tokens.ts';
@@ -78,7 +78,10 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
     };
   };
   const imports = memo((f): ImportBinding[] => importsOf(f, isDs));
-  const usages = memo((f): JsxUsage[] => jsxUsages(f, imports(f)));
+  // Vue resolves template tags against global registrations too (`app.component(…)`, usually in main.ts).
+  const globals = new Map<string, ImportBinding>();
+  if ([...files.values()].some((f) => f.kind === 'vue')) for (const f of files.values()) for (const [name, b] of globalComponents(f, imports(f))) globals.set(name, b);
+  const usages = memo((f): JsxUsage[] => jsxUsages(f, imports(f), globals));
   const definitions = memo((f): ComponentDefinition[] => componentDefinitions(f, usages(f)));
 
   const project: SourceProject = {

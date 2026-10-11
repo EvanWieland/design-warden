@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { JSXAttribute, JSXOpeningElement, Node } from '@babel/types';
 import { lineOf, walk, type ParsedFile } from './parse.ts';
-import { templateDefinition, templateUsages } from './templates.ts';
+import { pascal, templateDefinition, templateUsages } from './templates.ts';
 
 export interface ImportBinding {
   local: string;
@@ -61,11 +61,30 @@ export function importsOf(file: ParsedFile, isDs: DsMatcher): ImportBinding[] {
   return out;
 }
 
+/**
+ * Vue components registered globally, by PascalCase name: `app.component('DsButton', DsButton)`,
+ * `Vue.component(…)` and chained `createApp(App).component(…)`. Only a registration of an imported
+ * component counts, and maps to that import; plugins (`app.use(…)`) are not read.
+ */
+export function globalComponents(file: ParsedFile, imports: ImportBinding[]): Map<string, ImportBinding> {
+  const out = new Map<string, ImportBinding>();
+  if (!file.ast || file.template) return out;
+  const byLocal = new Map(imports.map((i) => [i.local, i]));
+  walk(file.ast.program, (n) => {
+    if (n.type !== 'CallExpression' || n.callee.type !== 'MemberExpression' || n.callee.property.type !== 'Identifier' || n.callee.property.name !== 'component') return;
+    const [name, comp] = n.arguments;
+    if (n.arguments.length !== 2 || name?.type !== 'StringLiteral' || comp?.type !== 'Identifier') return;
+    const binding = byLocal.get(comp.name);
+    if (binding) out.set(pascal(name.value), binding);
+  });
+  return out;
+}
+
 const isPascal = (s: string) => /^[A-Z]/.test(s);
 
-/** Every JSX opening element in the file, resolved to what it renders. */
-export function jsxUsages(file: ParsedFile, imports: ImportBinding[]): JsxUsage[] {
-  if (file.template) return templateUsages(file, imports);
+/** Every JSX opening element in the file, resolved to what it renders. Vue templates also resolve against global registrations. */
+export function jsxUsages(file: ParsedFile, imports: ImportBinding[], globals?: ReadonlyMap<string, ImportBinding>): JsxUsage[] {
+  if (file.template) return templateUsages(file, imports, file.kind === 'vue' ? globals : undefined);
   if (!file.ast) return [];
   const byLocal = new Map(imports.map((i) => [i.local, i]));
   const definedHere = new Set(componentNames(file));
