@@ -75,7 +75,7 @@ Give every upload of the same commit its own `category`, or the second replaces 
 
 ## The example workflow
 
-[`examples/github-actions/design-warden.yml`](../examples/github-actions/design-warden.yml) is identical to `.github/workflows/design-warden.yml` in this repository (a test keeps them identical). It checks the demo app. To adopt it, change the four variables at the top. It assumes Design Warden lives in the same repository, as here or in a fork, and runs from source on Node 24.
+[`examples/github-actions/design-warden.yml`](../examples/github-actions/design-warden.yml) is identical to `.github/workflows/design-warden.yml` in this repository (a test keeps them identical). It checks the demo app. To adopt it, change the four variables at the top. It assumes Design Warden lives in the same repository, as here or in a fork, and runs from source on Node 24. In any other repository, replace each job's "Install the trusted tool" step with a pinned npm version: set `WARDEN` to `npx --yes design-warden@0.2.0` (for example `echo "WARDEN=npx --yes design-warden@0.2.0" >> "$GITHUB_ENV"`). The pinned version plays the role of the base-branch worktree: a pull request cannot change it. The npm package's README has a minimal one-job workflow.
 
 Every job first installs a **trusted copy of the tool**: `git worktree add` of the base branch into `$RUNNER_TEMP/tool`, outside the checkout, then `pnpm install --frozen-lockfile --ignore-scripts`. The pull request is analyzed, but it does not supply the analyzer.
 
@@ -143,13 +143,13 @@ What was verified: `packages/cli/test/policy-and-reports.test.ts` captures a bas
 
 ## Other CI systems
 
-The JSON report contains everything other formats need. The packages are not on npm yet, so CI runs Design Warden from a checkout of this repository, installed with `pnpm install --frozen-lockfile --ignore-scripts`, as the GitHub and GitLab jobs do. Any CI can run the check from your repository's root, use the exit code, and keep the JSON as an artifact:
+The JSON report contains everything other formats need. Any CI can run a pinned npm version from your repository's root, use the exit code, and keep the JSON as an artifact. Pinning the version keeps a change from altering the tool that judges it:
 
 ```bash
-node "$DESIGN_WARDEN/packages/cli/src/bin.ts" check --policy design-warden.policy.json --base "origin/$TARGET_BRANCH" --report design-warden.json
+npx --yes design-warden@0.2.0 check --policy design-warden.policy.json --base "origin/$TARGET_BRANCH" --policy-ref "origin/$TARGET_BRANCH" --report design-warden.json
 ```
 
-`$DESIGN_WARDEN` is the path of that checkout. SARIF (above) works with any SARIF viewer.
+SARIF (above) works with any SARIF viewer.
 
 ### GitLab Code Quality (`--format gitlab`)
 
@@ -183,6 +183,8 @@ design-warden-code-quality:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+The two worktree lines install this repository's copy of the tool, as in this repository's own pipelines. Elsewhere, replace them, and `node /tmp/tool/packages/cli/src/bin.ts`, with a pinned `npx --yes design-warden@0.2.0`.
 ```
 
 Where GitLab shows the results (merge-request widget, diff, pipeline tab) depends on your GitLab tier; see GitLab's Code Quality documentation. This job has **not** been run on GitLab from this environment.

@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@design-warden/cli": "workspace:*",
+    "design-warden": "workspace:*",
     "@design-warden/core": "workspace:*",
     "@design-warden/semantic-review": "workspace:*",
     "@design-warden/source-analysis": "workspace:*",

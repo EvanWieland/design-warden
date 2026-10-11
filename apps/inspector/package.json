@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@design-warden/cli": "workspace:*",
+    "design-warden": "workspace:*",
     "@design-warden/core": "workspace:*",
     "@design-warden/harness": "workspace:*",
     "react": "19.3.0",

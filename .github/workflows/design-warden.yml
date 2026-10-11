@@ -2,8 +2,8 @@
 # unchanged (.github/workflows/design-warden.yml is an identical copy, kept in sync by a test).
 #
 # To adopt it, change the variables under `env`. It assumes Design Warden lives in the same
-# repository (as in this repo or a fork of it) and runs from source on Node 24; once it is
-# published to npm, install a pinned version of that package instead of the worktree.
+# repository (as in this repo or a fork of it) and runs from source on Node 24. Elsewhere, set
+# WARDEN to a pinned npm version instead (npx --yes design-warden@0.2.0; docs/ci-integration.md).
 # Every action is pinned to a full commit SHA, with its version in a comment (checked by tests/repo.test.ts).
 #
 # Trust model (docs/ci-integration.md, SECURITY.md):

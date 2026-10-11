@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ALL_CHECKS } from '@design-warden/cli';
+import { ALL_CHECKS } from 'design-warden';
 import { compareText, loadPolicyFile, type FindingDraft } from '@design-warden/core';
 import { analyzeSource } from '@design-warden/source-analysis';
 import { DEMO_DIR, POLICY_FILE, REPO_ROOT } from './scenarios.ts';

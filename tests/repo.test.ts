@@ -42,6 +42,11 @@ describe('repository invariants', () => {
     expect(eager).toEqual([]);
   });
 
+  it('ships the starter policy in the design-warden package exactly as the example', () => {
+    for (const f of ['design-warden.policy.json', 'GUIDANCE.md']) expect(read(`packages/cli/starter/${f}`), f).toBe(read(`examples/policy/${f}`));
+    expect(JSON.parse(read('examples/policy/design-warden.policy.json')).$schema).toMatch(/^https:\/\/cdn\.jsdelivr\.net\/npm\/@design-warden\/core@\d+\.\d+\/schema\/policy\.schema\.json$/);
+  });
+
   it('the example GitHub workflow and the one this repository runs are identical', () => {
     expect(read('.github/workflows/design-warden.yml')).toBe(read('examples/github-actions/design-warden.yml'));
   });

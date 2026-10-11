@@ -40,22 +40,26 @@ function packAndInstall(tmp: string) {
   for (const p of PACKAGES) {
     run('corepack', ['pnpm', 'pack', '--pack-destination', tarballs], path.join(root, 'packages', p));
     const { name, version } = JSON.parse(fs.readFileSync(path.join(root, 'packages', p, 'package.json'), 'utf8')) as { name: string; version: string };
-    deps[name] = `file:../tarballs/${name.slice(1).replace('/', '-')}-${version}.tgz`;
+    deps[name] = `file:../tarballs/${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;
   }
+  const { version } = JSON.parse(fs.readFileSync(path.join(root, 'packages', 'cli', 'package.json'), 'utf8')) as { version: string };
 
   const app = path.join(tmp, 'app');
   fs.mkdirSync(app);
   fs.writeFileSync(path.join(app, 'package.json'), JSON.stringify({ name: 'consumer', private: true, type: 'module', dependencies: deps }));
   run('npm', ['install', '--no-audit', '--no-fund', '--ignore-scripts', '--loglevel=error', `--before=${BEFORE}`], app);
 
-  const installed = path.join(app, 'node_modules', '@design-warden', 'cli');
+  const installed = path.join(app, 'node_modules', 'design-warden');
   const manifest = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8')) as { bin: Record<string, string>; dependencies: Record<string, string> };
-  expect(manifest.dependencies['@design-warden/core']).toBe('0.1.0'); // workspace:* was replaced
-  expect(fs.existsSync(path.join(installed, 'src'))).toBe(false); // only dist is published
+  expect(manifest.dependencies['@design-warden/core']).toBe(version); // workspace:* was replaced
+  expect(fs.existsSync(path.join(installed, 'src'))).toBe(false); // only dist (and the starter) is published
+  // MIT needs the licence text in every copy; the README is the npm page; users copy the starter policy from the package.
+  for (const f of ['LICENSE', 'README.md', 'starter/design-warden.policy.json', 'starter/GUIDANCE.md']) expect(fs.existsSync(path.join(installed, f)), f).toBe(true);
+  expect(fs.existsSync(path.join(app, 'node_modules', '@design-warden', 'core', 'LICENSE'))).toBe(true);
   const bin = path.join(installed, manifest.bin['design-warden']!);
 
-  const version = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' });
-  expect(version.stdout.trim()).toBe('0.1.0');
+  const cliVersion = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' });
+  expect(cliVersion.stdout.trim()).toBe(version);
 
   const { root: project } = makeProject({ 'src/app/a.css': '.a { padding: 13px; }\n' });
   fs.writeFileSync(path.join(project, 'design-warden.policy.json'), JSON.stringify(TEST_POLICY));

@@ -203,15 +203,15 @@ importers:
 
   apps/inspector:
     dependencies:
-      '@design-warden/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
       '@design-warden/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@design-warden/harness':
         specifier: workspace:*
         version: link:../../tools/harness
+      design-warden:
+        specifier: workspace:*
+        version: link:../../packages/cli
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -344,9 +344,6 @@ importers:
 
   tools/harness:
     dependencies:
-      '@design-warden/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
       '@design-warden/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -359,6 +356,9 @@ importers:
       '@design-warden/visual-analysis':
         specifier: workspace:*
         version: link:../../packages/visual-analysis
+      design-warden:
+        specifier: workspace:*
+        version: link:../../packages/cli
       zod:
         specifier: 4.6.5
         version: 4.6.5

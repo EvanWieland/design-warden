@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
+The first release on npm: `design-warden` (the command line, published under that name instead of `@design-warden/cli`) and `@design-warden/core`, `@design-warden/source-analysis`, `@design-warden/visual-analysis` and `@design-warden/semantic-review`. The packages run on Node 22.18+ or 24.11+, and `design-warden` ships the starter policy in `starter/`.
+
 ### Added
 
 - `.github/CODEOWNERS` for what judges a pull request (workflows, policies, the design system and its guidance, the tool). ci-integration.md suggests a ruleset to enforce it.

@@ -3,7 +3,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { analyze, type ProgressEvent } from '@design-warden/cli';
+import { analyze, type ProgressEvent } from 'design-warden';
 import type { Report } from '@design-warden/core';
 import { anthropicProvider, replayProvider, type SemanticProvider } from '@design-warden/semantic-review';
 import { appliedScenario } from './apply.ts';
@@ -129,7 +129,7 @@ async function buildAndCapture(workspace: string, outDir: string, captureDir: st
   await exec(process.execPath, [vite, 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'error'], { cwd: workspace, windowsHide: true });
   const { captureAll, serveStatic } = await import('@design-warden/visual-analysis/capture');
   const { loadPolicyFile } = await import('@design-warden/core');
-  const { ALL_CHECKS, accessibilityCapture } = await import('@design-warden/cli');
+  const { ALL_CHECKS, accessibilityCapture } = await import('design-warden');
   const loaded = loadPolicyFile(path.join(workspace, POLICY_FILE), ALL_CHECKS);
   const server = await serveStatic(outDir);
   try {

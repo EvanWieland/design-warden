@@ -1,9 +1,8 @@
 {
   "name": "@design-warden/visual-analysis",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic Playwright capture, pixel comparison and changed-region localization for Design Warden.",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
@@ -16,6 +15,7 @@
     "./capture": "./src/capture.ts"
   },
   "publishConfig": {
+    "access": "public",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",

@@ -46,14 +46,15 @@ pnpm design-warden policy test --policy apps/demo/design-warden.policy.json
 pnpm design-warden check --policy apps/demo/design-warden.policy.json --format json --report .design-warden/report.json
 ```
 
-In your own repository, check a change against the base branch. The packages are not on npm yet, so run Design Warden from this checkout. The directory of the policy file is the project, and git runs there:
+In your own repository, install Design Warden from npm, copy the starter policy it ships with, and check a change against the base branch. The directory of the policy file is the project, and git runs there:
 
 ```bash
-# From the Design Warden checkout:
-pnpm design-warden check --policy ../your-app/design-warden.policy.json --base origin/main
-# Or from your repository's root, as CI does (report paths are then relative to it):
-node ../design-warden/packages/cli/src/bin.ts check --policy design-warden.policy.json --base origin/main
+npm install --save-dev design-warden      # Node 22.18+ or 24.11+
+cp node_modules/design-warden/starter/design-warden.policy.json node_modules/design-warden/starter/GUIDANCE.md .
+npx design-warden check --base origin/main --policy-ref origin/main
 ```
+
+From this checkout, the same CLI runs from source: `pnpm design-warden check --policy ../your-app/design-warden.policy.json --base origin/main`.
 
 Without git history (an archive, a CI system that copies files), compare with an older copy of the project instead: `--base-dir path/to/previous-copy`. Renamed files are detected as git would: a deleted and an added file with identical content, or with at least 50% of their lines in common and the same extension, are a rename, so moved code keeps its findings pre-existing and only edited lines count as changed. The policy then comes from the project itself, the head copy: there is no `--policy-ref` for directories, so a change to the policy is reported (`policy/changed`, even if `project.exclude` lists the policy file) but also takes effect. Where a change must not weaken its own rules, use git and `--policy-ref`.
 

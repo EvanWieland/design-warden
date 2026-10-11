@@ -1,15 +1,16 @@
 {
-  "name": "@design-warden/cli",
-  "version": "0.1.0",
-  "description": "Design Warden command line: checks frontend changes against a design policy.",
+  "name": "design-warden",
+  "version": "0.2.0",
+  "description": "CI check for design-system drift in frontend pull requests, built for UI written by AI coding agents. Deterministic checks for React, Vue, Svelte and CSS, optional visual diffs, and an AI reviewer that can flag but never block.",
+  "keywords": ["design-system", "design-tokens", "linter", "code-review", "ci", "frontend", "react", "vue", "svelte", "css", "tailwind", "visual-regression", "accessibility", "ai-agents"],
   "license": "MIT",
-  "private": true,
   "type": "module",
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "starter"
   ],
   "bin": {
     "design-warden": "./src/bin.ts"
@@ -18,6 +19,7 @@
     ".": "./src/index.ts"
   },
   "publishConfig": {
+    "access": "public",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",

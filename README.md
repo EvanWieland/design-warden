@@ -22,15 +22,15 @@ It answers five questions for every change:
 
 ```text
 $ pnpm scenario run hardcoded-color
-Design Warden 0.1.0 · Acme Console design policy (rev 2026.10.1, working-tree)
-Changes: 2 file(s) vs main (merge base 43a6b77e) · scope: changed-lines
+Design Warden 0.2.0 · Acme Console design policy (rev 2026.10.1, working-tree)
+Changes: 2 file(s) vs main (merge base ae725685) · scope: changed-lines
 
   FAIL   color/semantic-tokens  src/pages/OverviewPage.css:3:3
          Hardcoded color `#d93025` in `color`.
          -> Use var(--color-text-danger), the closest allowed token (#b91c1c).
          Guidance: Color (.claude/skills/acme-design-system/foundations.md > Color)
 
-Engines: source ok 208 ms · visual skipped (no captures given (use --visual-base and --visual-head)) · semantic skipped (not requested (use --semantic <provider>))
+Engines: source ok 134 ms · visual skipped (no captures given (use --visual-base and --visual-head)) · semantic skipped (not requested (use --semantic <provider>))
 Result: FAIL - 1 blocking, 0 need review, 0 info (0 suppressed, 0 pre-existing) · exit 1
 ```
 
@@ -80,13 +80,12 @@ pnpm inspector                            # http://127.0.0.1:4400: run scenarios
 pnpm demo                                 # the Acme Console demo app, http://localhost:5173
 ```
 
-In your own repository: the packages are not on npm yet, so Design Warden runs from this checkout. The directory of the policy file is the project, and git runs there. Start the policy from [examples/policy](examples/policy).
+In your own repository, install it from npm and start from the starter policy it ships with ([examples/policy](examples/policy) here). The directory of the policy file is the project, and git runs there.
 
 ```bash
-# From the Design Warden checkout:
-pnpm design-warden check --policy ../your-app/design-warden.policy.json --base origin/main --policy-ref origin/main
-# Or from your repository's root, as CI does (report paths are then relative to it):
-node ../design-warden/packages/cli/src/bin.ts check --policy design-warden.policy.json --base origin/main --policy-ref origin/main
+npm install --save-dev design-warden      # Node 22.18+ or 24.11+
+cp node_modules/design-warden/starter/design-warden.policy.json node_modules/design-warden/starter/GUIDANCE.md .
+npx design-warden check --base origin/main --policy-ref origin/main
 ```
 
 Exit codes: `0` pass or review requested · `1` blocking finding · `2` invalid policy, usage or setup error · `3` an engine failed closed. Full walkthrough: [docs/getting-started.md](docs/getting-started.md).
@@ -184,7 +183,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Provenance (composition and tree shape) | Embeddings are ruled out ([ADR 0009](docs/decisions/0009-pattern-provenance.md)) unless structural provenance proves insufficient on real repositories |
 | AI review: Anthropic SDK, OpenAI-compatible (Ollama, vLLM, LM Studio, and hosted services with that API, untested), replay; verification | Live-model evaluation results (not run, by the requester's choice); adapters for providers without an OpenAI-compatible API |
 | Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs, pull-request comment | Posting the comment from CI systems other than GitHub Actions (`design-warden comment` prints the markdown) |
-| Runs from source on Node ≥ 24.11; npm packages build to `dist/`, run on Node 22.18+ or 24.11+, and are tested by packing and installing them (on Node 22 and 24 in CI) | Publishing to npm (the packages are still `private`) |
+| Runs from source on Node ≥ 24.11; published on npm as `design-warden` and `@design-warden/*`, which run from `dist/` on Node 22.18+ or 24.11+ and are tested by packing and installing them (on Node 22 and 24 in CI) | npm provenance attestations (releases are published by hand, with 2FA) |
 
 The tool was developed on Windows 11. CI passes every step on Ubuntu, and the pull-request workflow's check and visual jobs ran as designed on GitHub; macOS is untested.
 

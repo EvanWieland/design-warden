@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { renderTerminal } from '@design-warden/cli';
+import { renderTerminal } from 'design-warden';
 import { applyScenario, resetDemo } from './apply.ts';
 import { runScenario, type SemanticMode } from './run.ts';
 import { listScenarios, REPO_ROOT, WORK_DIR } from './scenarios.ts';

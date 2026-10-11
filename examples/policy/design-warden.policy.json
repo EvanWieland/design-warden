@@ -1,5 +1,5 @@
 {
-  "$schema": "../../packages/core/schema/policy.schema.json",
+  "$schema": "https://cdn.jsdelivr.net/npm/@design-warden/core@0.2/schema/policy.schema.json",
   "policyVersion": 1,
   "name": "Starter design policy",
   "revision": "0.1.0",

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { ALL_CHECKS, VERSION, type ProgressEvent } from '@design-warden/cli';
+import { ALL_CHECKS, VERSION, type ProgressEvent } from 'design-warden';
 import { guidanceExcerpt, loadPolicyFile, resolveInside, type Report } from '@design-warden/core';
 import { listScenarios, loadScenario, runScenario, type SemanticMode } from '@design-warden/harness';
 
