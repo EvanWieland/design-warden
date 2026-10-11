@@ -98,8 +98,33 @@ export const container = (expression: Node): Node => ({ type: 'JSXExpressionCont
 export const pascal = (tag: string) => tag.replace(/(^|-)([a-z0-9])/g, (_, __, c: string) => c.toUpperCase());
 
 /** Template elements as usages, resolved through the script's imports. Unimported component tags are global components. */
+/**
+ * Components a Vue file registers itself, which win over global registrations: an Options API
+ * `components: { Alias: Imported }` map (to the import, or null), and every other top-level script binding (null).
+ */
+function localComponents(file: ParsedFile, byLocal: Map<string, ImportBinding>): Map<string, ImportBinding | null> {
+  const out = new Map<string, ImportBinding | null>();
+  const keyOf = (k: Node) => (k.type === 'Identifier' ? k.name : k.type === 'StringLiteral' ? k.value : null);
+  for (const stmt of file.ast?.program.body ?? []) {
+    const decl = stmt.type === 'ExportNamedDeclaration' ? stmt.declaration : stmt;
+    if (decl?.type === 'VariableDeclaration') for (const d of decl.declarations) if (d.id.type === 'Identifier') out.set(d.id.name, null);
+    if ((decl?.type === 'FunctionDeclaration' || decl?.type === 'ClassDeclaration') && decl.id) out.set(decl.id.name, null);
+    if (stmt.type !== 'ExportDefaultDeclaration') continue;
+    const d = stmt.declaration; // export default { … } or export default defineComponent({ … })
+    const options = d.type === 'ObjectExpression' ? d : d.type === 'CallExpression' && d.arguments[0]?.type === 'ObjectExpression' ? d.arguments[0] : undefined;
+    const map = options?.properties.find((p) => p.type === 'ObjectProperty' && !p.computed && keyOf(p.key) === 'components');
+    if (map?.type !== 'ObjectProperty' || map.value.type !== 'ObjectExpression') continue;
+    for (const p of map.value.properties) {
+      const name = p.type === 'ObjectProperty' && !p.computed ? keyOf(p.key) : null;
+      if (name && p.type === 'ObjectProperty') out.set(pascal(name), p.value.type === 'Identifier' ? (byLocal.get(p.value.name) ?? null) : null);
+    }
+  }
+  return out;
+}
+
 export function templateUsages(file: ParsedFile, imports: ImportBinding[], globals?: ReadonlyMap<string, ImportBinding>): JsxUsage[] {
   const byLocal = new Map(imports.map((i) => [i.local, i]));
+  const locals = file.kind === 'vue' ? localComponents(file, byLocal) : new Map<string, ImportBinding | null>();
   const usages = new Map<TemplateElement, JsxUsage>();
   for (const el of file.template?.elements ?? []) {
     let resolved: Resolved;
@@ -107,10 +132,11 @@ export function templateUsages(file: ParsedFile, imports: ImportBinding[], globa
     else if (!el.component) resolved = { kind: 'intrinsic', element: el.tag };
     else {
       // As in JSX: <Badge> per its import, <DS.Badge> through a namespace import, other dotted tags are components.
-      // A Vue tag without a local import resolves against global registrations; a local import wins, as in Vue.
+      // A Vue tag without an import resolves against the file's own registrations, then global ones, as in Vue.
       const name = pascal(el.tag);
       const parts = name.split('.');
-      const imp = byLocal.get(parts[0]!) ?? (parts.length === 1 ? globals?.get(name) : undefined);
+      let imp = byLocal.get(parts[0]!);
+      if (!imp && parts.length === 1) imp = locals.has(name) ? (locals.get(name) ?? undefined) : globals?.get(name);
       resolved = !imp?.isDesignSystem
         ? { kind: 'component', name }
         : parts.length === 1

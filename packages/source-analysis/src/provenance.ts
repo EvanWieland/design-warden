@@ -1,6 +1,6 @@
 import { isLineChanged, matchesAny, type ProvenanceClass, type ProvenanceRecord } from '@design-warden/core';
 import type { SourceProject } from './check.ts';
-import { componentDefinitions, features, importsOf, jaccard, jsxUsages, shapeTree, treeSimilarity, type ComponentDefinition, type JsxUsage, type Tree } from './jsx.ts';
+import { componentDefinitions, features, jaccard, shapeTree, treeSimilarity, type ComponentDefinition, type JsxUsage, type Tree } from './jsx.ts';
 import { parseFile, type ParsedFile } from './parse.ts';
 
 export interface ProvenanceOptions {
@@ -124,7 +124,7 @@ async function baseUsages(project: SourceProject, path: string): Promise<{ file:
   const text = await project.readBase?.(path);
   if (!text) return undefined;
   const file = parseFile(path, text);
-  return file.ast ? { file, usages: jsxUsages(file, importsOf(file, project.isDs)) } : undefined;
+  return file.ast ? { file, usages: project.usagesOf(file) } : undefined;
 }
 
 async function baseDefinitions(project: SourceProject, path: string): Promise<Map<string, ComponentDefinition>> {

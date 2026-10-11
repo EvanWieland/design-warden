@@ -207,9 +207,12 @@ export const tokenUsage = defineCheck({
         );
       }
       if (typeof sv.value !== 'string') continue;
+      // A palette class means a Tailwind token only in a Tailwind project, and not when the project styles that class itself.
+      if (sv.theme && (!ctx.project.usesTailwind() || ctx.project.styledBy(sv.theme).length > 0)) continue;
       // A palette class (`hover:bg-red-500`) references its token through the class: name the class, and suggest classes.
       const subject = (name: string) => (sv.theme ? `Class \`${sv.className}\` uses \`${name}\`, which` : `\`${name}\``);
-      const ref = (token: string) => (sv.theme && token.startsWith('--color-') ? `\`${replaceLast(sv.className!, sv.theme, token.slice('--color-'.length))}\` (var(${token}))` : `var(${token})`);
+      const ref = (name: string, token: string) =>
+        sv.theme && token.startsWith('--color-') ? `\`${replaceLast(sv.className!, name.slice('--color-'.length), token.slice('--color-'.length))}\` (var(${token}))` : `var(${token})`;
       for (const name of varReferences(sv.value)) {
         const def = tokens.defs.get(name);
         if (!def && local.has(name)) continue;
@@ -225,7 +228,7 @@ export const tokenUsage = defineCheck({
             fileFinding(ctx, 'token-usage', located(sv), {
               verdict: 'violation',
               message: `${subject(name)} is not a defined design token.`,
-              suggestion: close && close[1] <= 3 ? `Did you mean ${ref(close[0])}?` : undefined,
+              suggestion: close && close[1] <= 3 ? `Did you mean ${ref(name, close[0])}?` : undefined,
             }),
           );
         } else {
@@ -239,7 +242,7 @@ export const tokenUsage = defineCheck({
               suggestion: !use.length
                 ? undefined
                 : sv.theme
-                  ? `Use ${use.map(ref).join(' or ')}, which ${use.length === 1 ? 'has' : 'have'} the same value.`
+                  ? `Use ${use.map((t) => ref(name, t)).join(' or ')}, which ${use.length === 1 ? 'has' : 'have'} the same value.`
                   : `Use ${use.map((n) => `var(${n})`).join(' or ')}, which resolve to the same value.`,
             }),
           );

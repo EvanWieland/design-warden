@@ -49,19 +49,19 @@ const PALETTE_UTILITY = new RegExp(`^(bg|text|border(?:-[xytrblse])?|divide|outl
 
 /**
  * A color utility that names Tailwind's default palette (`hover:bg-red-500/50`), read as the theme
- * variable Tailwind v4 compiles it to: `var(--color-red-500)`. `color` is the palette name. Other theme
+ * variable Tailwind v4 compiles it to: `var(--color-red-500)`. `utility` is the class without variants and opacity. Other theme
  * classes are not judged: sizes and keywords (`text-sm`, `border-2`) are not colors, and a project's own
  * color names (`bg-danger`) are its tokens.
  */
-export function themeColor(cls: string): { property: string; value: string; color: string } | null {
+export function themeColor(cls: string): { property: string; value: string; utility: string } | null {
   const u = cls
     .slice(variantEnd(cls))
     .replace(/^!|!$/g, '')
     .replace(/\/(?:\d+|\[[^\]]*\]|\([^)]*\))$/, ''); // opacity modifier: /50, /[0.35], /(--alpha)
   const m = PALETTE_UTILITY.exec(u);
   if (!m) return null;
-  const [, prefix, color] = m as unknown as [string, string, string];
-  return { property: prefix === 'text' ? 'color' : (PROPERTY[prefix] ?? prefix), value: `var(--color-${color})`, color };
+  const [utility, prefix, color] = m as unknown as [string, string, string];
+  return { property: prefix === 'text' ? 'color' : (PROPERTY[prefix] ?? prefix), value: `var(--color-${color})`, utility };
 }
 
 /** Index after the last variant (`md:`, `data-[state=open]:`), ignoring colons inside brackets. */

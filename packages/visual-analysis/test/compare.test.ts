@@ -97,7 +97,7 @@ describe('compareCaptures', () => {
       styleHints,
     });
     const changed = drafts.find((x) => x.message.startsWith('Rendered output of home/default changed'))!;
-    expect(asked).toEqual(['section.ds-card']);
+    expect(asked).toEqual(['ds-card']);
     expect(changed.message).toContain(
       'Likely styled by (heuristic): src/ds/Card.css:3 `.ds-card`; src/ds/Accent.css:9 `.ds-card--accent` (changed); src/a.css:1 `.ds-card`.',
     );

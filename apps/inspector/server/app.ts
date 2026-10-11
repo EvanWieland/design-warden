@@ -66,6 +66,7 @@ export function createInspector(opts: InspectorOptions): http.Server {
   });
   // A run blocks the event loop for seconds. With Node's 5 s default, a poll that falls due when it resumes can
   // reuse a keep-alive socket in the same tick as the idle timeout closes it, and the client sees ECONNRESET.
+  // ponytail: a long keep-alive hides event-loop stalls on a loopback-only service; running scenarios in a worker would remove the stalls.
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
   return server;

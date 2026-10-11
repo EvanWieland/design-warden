@@ -26,7 +26,7 @@ We need shared types across a CLI, three engines, a local service and two web ap
   - `publishConfig` swaps `exports` and `bin` to `dist/` when pnpm packs, and `files` ships only `dist/` (plus core's `schema/`);
   - `pnpm test:pack` builds, packs, installs the tarballs into a fresh project with npm, and runs `design-warden` from `node_modules`.
   The repository, its tests and the CLI still run from `src/`, so a stale `dist/` cannot affect them.
-- Requires Node >= 24.11 (Babel 8 also needs >= 24.11 or 22.18).
+- The repository requires Node >= 24.11. The published packages run from `dist/` on Node 22.18+ or 24.11+, Babel 8's range, and CI tests them on Node 22 (amended 2026-10-11).
 
 ## Alternatives considered
 

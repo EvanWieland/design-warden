@@ -1,0 +1,2 @@
+/* Benchmark: the entry stylesheet of a Tailwind project. It makes the corpus a Tailwind project, so default-palette classes are judged. No findings are expected here. */
+@import "tailwindcss";

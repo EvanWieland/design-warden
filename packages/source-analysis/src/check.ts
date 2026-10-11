@@ -2,6 +2,7 @@ import type { CheckDefinition, ComponentSpec, ChangeSet, FindingDraft, Policy, P
 import type { z } from 'zod';
 import type { ComponentDefinition, DsMatcher, JsxUsage } from './jsx.ts';
 import { snippetAt, type ParsedFile } from './parse.ts';
+import type { StyleRule } from './style-values.ts';
 import type { TokenSet } from './tokens.ts';
 
 /** Everything checks may read about the project. Built once per run by `analyzeSource`. */
@@ -14,6 +15,12 @@ export interface SourceProject {
   isDs: DsMatcher;
   inDesignSystem(file: string): boolean;
   usages(file: ParsedFile): JsxUsage[];
+  /** Resolves any version of a file (a base version too) the way `usages` does, imports and global registrations included; not cached. */
+  usagesOf(file: ParsedFile): JsxUsage[];
+  /** The stylesheet rules whose selectors use a class: the project's stylesheets and component style blocks. */
+  styledBy(className: string): StyleRule[];
+  /** Whether the project uses Tailwind: a `tailwindcss` dependency, or a stylesheet that imports it or has `@tailwind` or `@theme`. */
+  usesTailwind(): boolean;
   definitions(file: ParsedFile): ComponentDefinition[];
   changes?: ChangeSet;
   readBase?: (file: string) => Promise<string | null>;

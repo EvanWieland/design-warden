@@ -1,4 +1,4 @@
-import type { Node, ObjectExpression, TemplateLiteral } from '@babel/types';
+import type { Identifier, MemberExpression, Node, ObjectExpression, TemplateLiteral } from '@babel/types';
 import postcss, { type Root } from 'postcss';
 import scss from 'postcss-scss';
 import valueParser from 'postcss-value-parser';
@@ -19,7 +19,7 @@ export interface StyleValue {
   source: 'css' | 'css-in-js' | 'jsx-style' | 'jsx-prop' | 'jsx-class';
   /** For `jsx-class`: the class the value came from, such as `md:p-[13px]`. */
   className?: string;
-  /** For `jsx-class`: the default-palette color a theme class names (`red-500` in `hover:bg-red-500/50`); the value is `var(--color-red-500)`. */
+  /** For `jsx-class`: the Tailwind utility of a default-palette class (`bg-red-500` in `hover:bg-red-500/50`); the value is `var(--color-red-500)`. */
   theme?: string;
   /** True for custom-property definitions such as `--local-gap: 4px`. */
   definesCustomProperty: boolean;
@@ -62,13 +62,15 @@ export function styleValues(file: ParsedFile): StyleValue[] {
     seen.add(obj);
     out.push(...objectStyles(file, obj, objects, fromObject, kind));
   };
-  /** Style objects an expression can produce: literals, same-file constants, arrays of them, and what a function returns. */
+  /** Style objects an expression can produce: literals, same-file constants and lookups into them, arrays, and what a function returns. */
   const objectsOf = (n: Node, kind: ObjectKind): void => {
     for (const b of branches(n)) {
       if (b.type === 'ObjectExpression') {
         fromObject(b, kind);
       } else if (b.type === 'Identifier' && objects.has(b.name)) {
         fromObject(objects.get(b.name)!, kind);
+      } else if (isLookup(b, objects)) {
+        for (const v of lookupValues(b, objects)) objectsOf(v, kind); // styles.root, variants[tone]: read where the map is written
       } else if (b.type === 'ArrayExpression') {
         for (const e of b.elements) if (e && e.type !== 'SpreadElement') objectsOf(e, kind);
       } else {
@@ -76,21 +78,41 @@ export function styleValues(file: ParsedFile): StyleValue[] {
       }
     }
   };
-  const classes = (n: Node) => out.push(...classValues(n, strings, seen));
+  const classes = (n: Node) => out.push(...classValues(n, strings, objects, seen));
+  /** Class strings in cva() and tv() definitions: the base, slots, variant options and compound variants' class; not variant names or defaults. */
+  const variantClasses = (args: Node[]) => {
+    for (const arg of args) {
+      const a = unwrap(arg);
+      if (a.type !== 'ObjectExpression') {
+        classes(a); // cva's first argument: the base classes
+        continue;
+      }
+      for (const [key, v] of entries(a)) {
+        if (key === 'base' || key === 'class' || key === 'className') classes(v);
+        else if (key === 'slots') for (const [, s] of entriesOf(v)) classes(s);
+        else if (key === 'variants') for (const [, variant] of entriesOf(v)) for (const [, option] of entriesOf(variant)) for (const c of option.type === 'ObjectExpression' ? entries(option).map(([, x]) => x) : [option]) classes(c);
+        else if (key === 'compoundVariants' || key === 'compoundSlots') {
+          for (const item of v.type === 'ArrayExpression' ? v.elements : []) for (const [k2, c] of item?.type === 'ObjectExpression' ? entries(item) : []) if (k2 === 'class' || k2 === 'className') classes(c);
+        }
+      }
+    }
+  };
   /** One attribute of a JSX element or a template element (string literal or expression container). */
   const attribute = (name: string, value: Node | null | undefined) => {
     if (!value) return;
     const expr = value.type === 'JSXExpressionContainer' && value.expression.type !== 'JSXEmptyExpression' ? unwrap(value.expression) : null;
-    if (name === 'className' || name === 'class') {
-      classes(expr ?? value);
+    if (name === 'className' || name === 'class' || /ClassName$/.test(name)) {
+      classes(expr ?? value); // also component props such as labelClassName
     } else if (name === 'style' && value.type === 'StringLiteral') {
       out.push(...inlineCss(file, value)); // style="color: red" (Vue, Svelte, Preact, Solid)
     } else if (name === 'style' && expr?.type === 'TemplateLiteral') {
       // style="color: red; padding: {gap}px" (Svelte), :style="`…${x}…`" (Vue): read the static declarations.
       out.push(...templateCss(file, expr, 'jsx-style', { lead: `Inline style \`${source(file, expr)}\` could not be parsed as CSS`, offset: expr.start ?? 0 }, postcss));
     } else if (name === 'style' && expr) {
-      const obj = expr.type === 'ObjectExpression' ? expr : expr.type === 'Identifier' ? objects.get(expr.name) : undefined;
-      if (obj) fromObject(obj);
+      // A lookup is read only when every value it can return is a style object written here (an empty map is filled elsewhere).
+      const known = (v: Node) => v.type === 'ObjectExpression' || (v.type === 'Identifier' && objects.has(v.name));
+      const resolved = isLookup(expr, objects) && lookupValues(expr, objects).length > 0 && lookupValues(expr, objects).every(known);
+      if (known(expr) || resolved) objectsOf(expr, INLINE);
       else out.push(at(expr, { property: 'style', value: null, expression: source(file, expr), source: 'jsx-style', definesCustomProperty: false, wholeObject: true }));
     } else if ((name === 'css' || name === 'sx') && expr) {
       // Emotion's css prop and MUI's sx prop. css={css`…`} and css={css({…})} are read as the template or call they are.
@@ -113,6 +135,10 @@ export function styleValues(file: ParsedFile): StyleValue[] {
     if (node.type === 'CallExpression' && isStyleTag(node.callee)) for (const arg of node.arguments) objectsOf(arg as Node, CSS_IN_JS);
     if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)) {
       for (const arg of node.arguments) classes(arg as Node);
+      return;
+    }
+    if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && (node.callee.name === 'cva' || node.callee.name === 'tv')) {
+      variantClasses(node.arguments as Node[]);
       return;
     }
     if (node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier') attribute(node.name.name, node.value);
@@ -138,7 +164,9 @@ export function indexClasses(files: Iterable<ParsedFile>): Map<string, StyleRule
     const pos = offsetPosition(file);
     root.walkRules((r) => {
       const rule = { file: file.path, line: pos(origin + (r.source?.start?.offset ?? 0)).line, selector: brief(r.selector) };
-      for (const cls of new Set(Array.from(r.selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g), (m) => m[1]!))) {
+      // Attribute values (a[href$=".pdf"]) and negated classes (:not(.is-active)) are not classes the rule styles.
+      const plain = r.selector.replace(/\[[^\]]*\]/g, '').replace(/:not\([^)]*\)/g, '');
+      for (const cls of new Set(Array.from(plain.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g), (m) => m[1]!))) {
         (index.get(cls) ?? index.set(cls, []).get(cls)!).push(rule);
       }
     });
@@ -149,6 +177,26 @@ export function indexClasses(files: Iterable<ParsedFile>): Map<string, StyleRule
   }
   for (const rules of index.values()) rules.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
   return index;
+}
+
+/** Whether a project uses Tailwind: a `tailwindcss` dependency in its package.json, or a stylesheet with `@import "tailwindcss"`, `@tailwind` or `@theme`. */
+export function detectTailwind(files: Iterable<ParsedFile>, readPackageJson: () => string): boolean {
+  try {
+    const pkg = JSON.parse(readPackageJson()) as Record<string, unknown>;
+    if (['dependencies', 'devDependencies', 'peerDependencies'].some((k) => typeof pkg[k] === 'object' && pkg[k] !== null && 'tailwindcss' in (pkg[k] as object))) return true;
+  } catch {
+    // no readable package.json: the stylesheets decide
+  }
+  for (const f of files) {
+    for (const root of [f.css, ...(f.template?.styles ?? []).map((s) => s.root)]) {
+      let found = false;
+      root?.walkAtRules((a) => {
+        if (a.name === 'tailwind' || a.name === 'theme' || (a.name === 'import' && a.params.includes('tailwindcss'))) found = true;
+      });
+      if (found) return true;
+    }
+  }
+  return false;
 }
 
 /** Where a parsed stylesheet sits in the file, and which parts of it stood for `${…}`. */
@@ -286,6 +334,30 @@ const SX_ALIASES: Record<string, string> = {
 };
 /** A theme path such as `primary.main` or `grey.500`, which MUI resolves through the theme. */
 const THEME_PATH = /^[a-z][\w-]*(\.[\w-]+)+$/i;
+/** Characters of a selector or an at-rule key (`&:hover`, `@media …`, `.child`); a breakpoint key (`xs`, `md`) has none. */
+const SELECTOR_CHARS = /[&:@.#[\]*>+~\s]/;
+
+/** The written-out properties of an object literal as [key, value] (computed keys and spreads left out). */
+function entries(obj: ObjectExpression): [string, Node][] {
+  return obj.properties.flatMap((p): [string, Node][] => {
+    if (p.type !== 'ObjectProperty' || p.computed) return [];
+    const key = p.key.type === 'Identifier' ? p.key.name : p.key.type === 'StringLiteral' ? p.key.value : null;
+    return key === null ? [] : [[key, unwrap(p.value as Node)]];
+  });
+}
+const entriesOf = (n: Node): [string, Node][] => (n.type === 'ObjectExpression' ? entries(n) : []);
+
+/** `map.key` or `map[key]` on a same-file object constant. */
+function isLookup(n: Node, objects: Map<string, ObjectExpression>): n is MemberExpression {
+  return n.type === 'MemberExpression' && n.object.type === 'Identifier' && objects.has(n.object.name);
+}
+
+/** What a lookup can return: the named entry, or every entry when the key is chosen at runtime. */
+function lookupValues(n: MemberExpression, objects: Map<string, ObjectExpression>): Node[] {
+  const all = entries(objects.get((n.object as Identifier).name)!);
+  const key = !n.computed && n.property.type === 'Identifier' ? n.property.name : n.property.type === 'StringLiteral' ? n.property.value : null;
+  return all.filter(([k]) => key === null || k === key).map(([, v]) => v);
+}
 
 function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<string, ObjectExpression>, nested: (o: ObjectExpression, kind: ObjectKind) => void, kind: ObjectKind): StyleValue[] {
   const out: StyleValue[] = [];
@@ -298,22 +370,34 @@ function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<stri
       else out.push(at(arg, { property: 'style', value: null, expression: `...${source(file, arg)}`, source: kind.source, definesCustomProperty: false, wholeObject: true }));
       continue;
     }
-    if (p.type !== 'ObjectProperty' || p.computed) continue;
+    if (p.type !== 'ObjectProperty') continue;
+    const value = unwrap(p.value as Node);
+    if (p.computed) {
+      // A selector built at runtime ([`&.${classes.head}`]) holds a nested rule; any other computed key sets a property chosen at runtime.
+      if (value.type === 'ObjectExpression') nested(value, kind);
+      else if (!kind.sx) out.push(at(p.key, { property: 'style', value: null, lead: `\`[${source(file, p.key)}]\` sets a property chosen at runtime`, source: kind.source, definesCustomProperty: false, wholeObject: true }));
+      continue;
+    }
     const key = p.key.type === 'Identifier' ? p.key.name : p.key.type === 'StringLiteral' ? p.key.value : null;
     if (!key) continue;
-    const value = unwrap(p.value as Node);
-    if (value.type === 'ObjectExpression') {
-      nested(value, kind); // a nested rule: selector, media query, keyframe step or responsive breakpoints
+    // An object is a nested rule (selector, media query, keyframe step), except under an sx property, where it holds breakpoints.
+    if (value.type === 'ObjectExpression' && !(kind.sx && !SELECTOR_CHARS.test(key))) {
+      nested(value, kind);
       continue;
     }
     const property = key.startsWith('--') ? key : kind.sx && SX_ALIASES[key] ? SX_ALIASES[key] : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-    // sx takes responsive arrays (`px: [1, '10px']`).
-    const candidates = kind.sx && value.type === 'ArrayExpression' ? value.elements.filter((e): e is NonNullable<typeof e> => !!e && e.type !== 'SpreadElement').flatMap((e) => branches(e)) : branches(value);
+    // sx takes responsive arrays (`px: [1, '10px']`) and breakpoint objects (`px: { xs: 1, md: '18px' }`).
+    const candidates =
+      kind.sx && value.type === 'ArrayExpression'
+        ? value.elements.filter((e): e is NonNullable<typeof e> => !!e && e.type !== 'SpreadElement').flatMap((e) => branches(e))
+        : kind.sx && value.type === 'ObjectExpression'
+          ? entries(value).flatMap(([, v]) => branches(v))
+          : branches(value);
     for (const b of candidates) {
       const lit = literalOf(b);
       if (lit === null) continue; // `undefined` / `null` unset the property
-      // MUI resolves numbers (`p: 2`), theme paths and computed values through the theme: only literal CSS is raw.
-      if (kind.sx && (typeof lit !== 'string' || THEME_PATH.test(lit))) continue;
+      // MUI resolves theme paths, computed values and numbers (`p: 2`) through the theme, except a numeric fontSize, which is pixels.
+      if (kind.sx && (typeof lit === 'number' ? property !== 'font-size' : typeof lit !== 'string' || THEME_PATH.test(lit))) continue;
       out.push(
         at(b, {
           property,
@@ -337,6 +421,7 @@ function returnedValues(fn: Node): Node[] {
     if (s.type === 'ReturnStatement' && s.argument) out.push(s.argument);
     else if (s.type === 'BlockStatement') s.body.forEach(visit);
     else if (s.type === 'IfStatement') [s.consequent, s.alternate].forEach(visit);
+    else if (s.type === 'SwitchStatement') for (const c of s.cases) c.consequent.forEach(visit);
   };
   visit(fn.body);
   return out;
@@ -369,31 +454,33 @@ interface ClassPiece {
  * they are defined). A class cut by a `${…}` (`p-[${n}px]`) has unbalanced brackets, so
  * `arbitraryValue` rejects it.
  */
-function classPieces(n: Node, strings: Map<string, Node>, seen: Set<Node>): ClassPiece[] {
+function classPieces(n: Node, strings: Map<string, Node>, objects: Map<string, ObjectExpression>, seen: Set<Node>): ClassPiece[] {
+  const pieces = (x: Node) => classPieces(x, strings, objects, seen);
   return branches(n).flatMap((b): ClassPiece[] => {
     if (b.type === 'StringLiteral') return [{ text: b.value, line: lineOf(b), column: (b.loc?.start.column ?? 0) + 2 }];
     if (b.type === 'TemplateLiteral') {
-      return [
-        ...b.quasis.map((q) => ({ text: q.value.cooked ?? '', line: lineOf(q), column: (q.loc?.start.column ?? 0) + 1 })),
-        ...b.expressions.flatMap((e) => classPieces(e as Node, strings, seen)),
-      ];
+      return [...b.quasis.map((q) => ({ text: q.value.cooked ?? '', line: lineOf(q), column: (q.loc?.start.column ?? 0) + 1 })), ...b.expressions.flatMap((e) => pieces(e as Node))];
     }
     if (b.type === 'Identifier') {
       const init = strings.get(b.name);
       if (!init || seen.has(init)) return [];
       seen.add(init);
-      return classPieces(init, strings, seen);
+      return pieces(init);
     }
-    if (b.type === 'ArrayExpression') return b.elements.flatMap((e) => (e && e.type !== 'SpreadElement' ? classPieces(e, strings, seen) : []));
-    if (b.type === 'ObjectExpression') return b.properties.flatMap((p) => (p.type === 'ObjectProperty' && p.key.type === 'StringLiteral' ? classPieces(p.key, strings, seen) : []));
+    // A lookup into a same-file class map (tones[tone]): its entries, read once where they are written.
+    if (isLookup(b, objects)) return lookupValues(b, objects).flatMap((v) => (seen.has(v) ? [] : (seen.add(v), pieces(v))));
+    // ['a', on && 'b'].join(' ')
+    if (b.type === 'CallExpression' && b.callee.type === 'MemberExpression' && !b.callee.computed && b.callee.property.type === 'Identifier' && b.callee.property.name === 'join' && b.callee.object.type === 'ArrayExpression') return pieces(b.callee.object);
+    if (b.type === 'ArrayExpression') return b.elements.flatMap((e) => (e && e.type !== 'SpreadElement' ? pieces(e) : []));
+    if (b.type === 'ObjectExpression') return b.properties.flatMap((p) => (p.type === 'ObjectProperty' && p.key.type === 'StringLiteral' ? pieces(p.key) : []));
     return [];
   });
 }
 
 /** Tailwind arbitrary values (`p-[13px]`) and default-palette color classes (`bg-red-500`) in class strings, as style values located at their class. */
-function classValues(n: Node, strings: Map<string, Node>, seen: Set<Node>): StyleValue[] {
+function classValues(n: Node, strings: Map<string, Node>, objects: Map<string, ObjectExpression>, seen: Set<Node>): StyleValue[] {
   const out: StyleValue[] = [];
-  for (const piece of classPieces(n, strings, seen)) {
+  for (const piece of classPieces(n, strings, objects, seen)) {
     // Positions advance with the scan, so a long class string is read in one pass.
     let [line, lastBreak, scanned] = [piece.line, -1, 0];
     for (const m of piece.text.matchAll(/\S+/g)) {
@@ -412,7 +499,7 @@ function classValues(n: Node, strings: Map<string, Node>, seen: Set<Node>): Styl
         source: 'jsx-class',
         className: m[0],
         definesCustomProperty: found.property.startsWith('--'),
-        ...(t ? { theme: t.color } : {}),
+        ...(t ? { theme: t.utility } : {}),
       });
     }
   }

@@ -141,9 +141,8 @@ export async function analyze(opts: AnalyzeOptions): Promise<Report> {
     const styledBy = source.value?.styledBy;
     const changedFiles = new Set(changes?.files.map((f) => f.path));
     const styleHints = styledBy
-      ? (label: string) => {
-          const cls = /\.(-?[_a-zA-Z][\w-]*)/.exec(label)?.[1];
-          const rules = cls ? styledBy(cls).map((r) => ({ ...r, changed: changedFiles.has(r.file) })) : [];
+      ? (className: string) => {
+          const rules = styledBy(className).map((r) => ({ ...r, changed: changedFiles.has(r.file) }));
           return [...rules.filter((r) => r.changed), ...rules.filter((r) => !r.changed)];
         }
       : undefined;

@@ -116,7 +116,7 @@ On 2026-10-11 the requester asked to "finish the project": verify what was never
 | C8 | Scope decisions | Embeddings ruled out with a reason; providers reachable through the OpenAI-compatible adapter documented as untested; the README's "Not yet" column updated | | Done 2026-10-11 |
 | C9 | Node 22 for the npm packages | The published `dist/` runs on Node 22 LTS, tested in CI; `engines` says so; the repository itself stays on Node 24 | Or a recorded reason why not | Done 2026-10-11 |
 | C10 | Repository protection | CODEOWNERS for the workflows and policies; a branch ruleset if the plan allows it, otherwise documented | | Done 2026-10-11 |
-| C11 | macOS | One manually triggered CI run on macOS passes, or its failures are fixed | Costs 10x Actions minutes on a private repository: run once | |
+| C11 | macOS | One manually triggered CI run on macOS passes, or its failures are fixed | Costs 10x Actions minutes on a private repository: run once | Done 2026-10-11 |
 | C12 | Deferred minors | The starter policy's `$schema` resolves after copying; the Windows long-path build failure is in troubleshooting | | |
 | C13 | npm release 0.2.0 | `design-warden` (unscoped) runs the CLI, the five scoped packages are public, all at 0.2.0; dry-run packs verified; published with the requester's 2FA approval; `npx design-warden` works from an empty directory; docs say how to install | Last, after the final review | |
 
@@ -558,3 +558,40 @@ On 2026-10-11 the requester asked to "finish the project": verify what was never
 - 2026-10-11 (C10: repository protection). `GET /repos/EvanWieland/design-warden/branches/main/protection` and `…/rulesets` both answer 403 "Upgrade to GitHub Pro or make this repository public to enable this feature": the repository is private on the free plan. So: `.github/CODEOWNERS` for what judges a pull request (workflows, both policies, the demo design system and its guidance, `packages/`), which documents ownership but is not enforced; ci-integration.md suggests a ruleset for adopters (pull request, code-owner review, the blocking check, no force pushes or deletion); SECURITY.md notes the limitation.
 - 2026-10-11 (C12, part): troubleshooting.md gains the Windows "os error 3" build failure (a long checkout path; clone shorter or enable long paths). The starter policy's `$schema` needs the published package, so it moves to C13.
 - 2026-10-11 (C9: Node 22 for the npm packages). No source uses an API newer than ES2024 (`lib: es2024` already prevents it); a scan for Node 23/24-only APIs found nothing. CI job `pack-node22` (the build, pack, install and run test on Node 22): run 38170770351, **passed** on Node v22.23.3, with the CLI's stderr empty (the test asserts it). Babel 8 declares `^22.18.0 || >=24.11.0`, so the five publishable packages now declare the same range. The repository itself still needs 24.11 (root `engines`). troubleshooting.md had said "Babel 8 needs ≥ 24.11"; it now gives both ranges. README status updated. Local: `pnpm install --frozen-lockfile` up to date; `pnpm test:pack` 1 passed.
+- 2026-10-11 (C11: macOS). `macos.yml` (manual dispatch, `macos-15`) run 38171141592: every step passed on macos-15-arm64 with Node v24.20.0 (typecheck; 285 tests; 11 e2e; check:demo PASS, 17/17 examples; benchmark 158 / 1 / 1; the pack test). The run took 2 min 18 s, about 30 billable minutes at the 10x macOS rate. The same commit's CI (run 38171141904) passed on Ubuntu and Node 22.
+- 2026-10-11 (the finishing review and its fix pass). Three independent reviews of `71595b3..44b934b`: security-reviewer, architecture-reviewer, findings-auditor.
+  - Fixed, each with a test that failed first:
+    - **Security, high:** a git `R100` rename is not identical content: git scores similarity by hashed chunks in any order, so a moved and edited file could pass the blocking check. `gitChangeSet` now uses the hunks, and treats a rename as changing nothing only when the blob ids match (`git rev-parse <base>:./<old>` against `git hash-object`). Test: rename plus reordered lines (RED: no changed lines).
+    - **Security, medium:** code renamed in from a path a rule did not cover counted as pre-existing (a two-pull-request bypass). `finalize.ts` checks the old path against the rule's scope. Test: `src/vendor/**` (excluded) moved into `src/app` (RED: pre-existing, info).
+    - **Security, medium-low and lows:**
+      - The comment job now downloads each report by the artifact id its job outputs, not by name: the visual job runs pull-request code and could upload under another name.
+      - Sections are titled by job: `design-warden comment check=… visual=… semantic=…`.
+      - An unreadable report becomes a placeholder section, so the previous comment is not left in place.
+      - The engine list is capped at 10, and a field that is not text renders as nothing; a `{"toString":1}` field had thrown.
+      - `@` mentions are neutralised with a zero-width space.
+      - Rendering and posting are separate steps, and only the posting step has the token.
+      - The footer names the head commit.
+      - CODEOWNERS also covers the root manifests, `tools/`, `tests/` and `apps/inspector/`.
+      - Tests: 3 new comment tests (RED), and a local run of the render and post steps with a stub `gh`, in which a forged "pass" visual report was titled "(visual only)".
+    - **Architecture:**
+      - Finding ids collided between visual changes, because they used the first code evidence, which was a style hint shared between screens. They now use code evidence from the finding's own file only (test: RED, the second id was `…-1`).
+      - Provenance resolved base versions without global Vue registrations. `SourceProject.usagesOf` now resolves base versions as the head is resolved (test written after the fix, then proven: with the old line restored it fails, "modified" instead of "established").
+      - The CLI parsed capture's label format; the label is now parsed in `compare.ts`, and the callback takes a class name.
+      - The documented Tailwind opt-in through `node_modules/tailwindcss/theme.css` would make the CI check exit 2, because CI does not install dependencies. It now says to commit a copy, and a test covers an `@theme` token source (it passed before the fix: the feature worked, the test was missing).
+      - Stale ADRs amended with dated notes: 0002, 0003, 0006, 0007, 0011 and 0012, plus open question 7.
+      - The inspector keep-alive gained a `ponytail:` note, and `COMMENT_MARKER` is no longer exported.
+    - **Detection audit:** all 11 tests in `checks.test.ts` "finishing review" were RED, then GREEN. They cover:
+      - `sx` breakpoint objects read as values of their property;
+      - computed selector keys as nested rules, and runtime properties as insufficient evidence;
+      - lookups into same-file style and class maps;
+      - a numeric `sx` `fontSize` read as pixels;
+      - `cva()` and `tv()`, `*ClassName` props, `.join(' ')` and `switch` returns;
+      - palette classes only in Tailwind projects (a `tailwindcss` dependency, or a stylesheet with `@import "tailwindcss"`, `@tailwind` or `@theme`), and never for a class the project defines itself;
+      - Vue local registrations (an Options API `components` map with aliases, and script bindings) winning over global ones;
+      - namespace-member and `const`-name registrations;
+      - attribute values and `:not()` kept out of the hint index.
+    - One regression caught on the way: `style={BY_STATUS[s]}` on an empty map went silent; an inline lookup now counts as read only when every entry is an object literal.
+    - The two C4 palette tests gained the Tailwind signal, and the old local-constants test passes unchanged.
+  - Benchmark: the corpus became a Tailwind project (`tailwind.css`), and the audit's proposed cases were added with labels taken from the documented contract: 13 new labels, all hits, plus four negative files. `pnpm eval`: 28 files, 172 expected, **171 / 1 / 1** (99.4% / 99.4%), the same two documented mismatches; insufficient evidence 15.1%. The pinned baseline is now tp 171.
+  - Deferred (minor): SCSS `&__title` nesting is not resolved for hints (message text only). Everything else the reviews raised is fixed.
+  - Verification: `pnpm typecheck` exit 0; `pnpm test` **303 passed**; `pnpm check:demo` PASS, 17/17; `pnpm scenario run all` 11/11; `pnpm eval` 171 / 1 / 1. Docs: rules.md, security.md (P12 and token permissions), ci-integration.md, CHANGELOG, README, evaluation.md, the ADRs.

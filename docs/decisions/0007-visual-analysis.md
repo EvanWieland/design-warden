@@ -32,6 +32,7 @@ See [visual-regression.md](../research/visual-regression.md):
 - No baseline storage and no approval service. Results reproduce on one machine.
 - CI must build the base revision, which costs time in large monorepos.
 - Element labels from production builds may be less meaningful than source-level component names.
+- Region-to-source hints (added 2026-10-11): each changed screen's finding names up to three stylesheet rules that use the class of its largest change's element, as a heuristic, from a lookup the CLI passes in, so visual-analysis still does not depend on source analysis. They are code evidence in other files, so finding ids ignore them (ADR 0012).
 
 ## Alternatives considered
 

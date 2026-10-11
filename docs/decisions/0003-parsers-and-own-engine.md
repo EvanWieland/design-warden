@@ -24,7 +24,7 @@ The checks need real parsers for TSX and CSS, structured evidence per finding, e
 - Full control over evidence, exceptions and scoping. The parsing footprint stays small: `@babel/parser`, `postcss`, `postcss-value-parser` and `postcss-scss`, plus the Vue and Svelte compilers, which load only for their files.
 - No editor squiggles yet. An ESLint adapter that wraps the same check functions is the extension path.
 - Rule code is written against Babel's AST shapes (`StringLiteral`, `ObjectProperty`). Moving to oxc would need a small adapter; Babel's `estree` plugin was considered and not used, because the parser touch points are few.
-- Not covered at first: CSS-in-JS, SCSS and Tailwind classes. Tailwind arbitrary values, CSS-in-JS templates and SCSS were added later; Tailwind theme classes are still not read (that needs the Tailwind config). [rules.md](../rules.md) lists what each reader cannot see.
+- Not covered at first: CSS-in-JS, SCSS and Tailwind classes. Tailwind arbitrary values, CSS-in-JS templates and SCSS were added later, and on 2026-10-11 CSS-in-JS object styles, MUI `sx` and Tailwind default-palette color classes (read as the `--color-*` theme variable they compile to, in projects that use Tailwind). Other Tailwind theme classes are not read (that needs the Tailwind config). [rules.md](../rules.md) lists what each reader cannot see.
 
 ## Alternatives considered
 

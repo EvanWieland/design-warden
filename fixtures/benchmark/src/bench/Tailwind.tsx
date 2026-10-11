@@ -1,6 +1,11 @@
 // Benchmark: Tailwind arbitrary values and default-palette color classes in class names. Each "@expect <rule>" marker labels a finding expected on its line.
 declare function cn(...classes: unknown[]): string;
 declare function classNames(...classes: unknown[]): string;
+declare function cva(...args: unknown[]): unknown;
+
+const tones: Record<string, string> = { danger: 'bg-red-100 text-red-700' }; // @expect tokens/semantic-only x2 (a class map read where it is written)
+const button = cva('px-[13px]', { variants: { tone: { danger: 'bg-red-600' } }, defaultVariants: { tone: 'danger' } }); // @expect spacing/scale @expect tokens/semantic-only
+export const used = [button];
 
 const label = 'p-[13px] text-[#e11d48]'; // a class-like string outside a class name: not read
 const late = 'text-[#b91c1c]'; // @expect color/semantic-tokens (a constant used as a class name below, reported where it is written)
@@ -26,6 +31,8 @@ export function TailwindCases({ active, size }: { active: boolean; size: string 
       <span className={classNames(late, 'px-[13px]')} /> {/* @expect spacing/scale */}
       <p className="text-gray-500 hover:bg-blue-600/90 border-2 text-sm bg-transparent shadow-lg" /> {/* @expect tokens/semantic-only x2 */}
       <p className={cn('text-white', active && 'ring-offset-indigo-500')} /> {/* @expect tokens/semantic-only x2 */}
+      <p className={cn('px-2', tones[size])} />
+      <hr className="border-white" />{/* tricky negative: utilities.css defines .border-white */}
     </section>
   );
 }

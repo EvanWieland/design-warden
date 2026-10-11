@@ -43,8 +43,8 @@ export interface CompareInput {
   artifactDir: string;
   ruleId: string;
   options: VisualDiffOptions;
-  /** Stylesheet rules that likely style an element (`a.ds-link`), most relevant first; the caller knows the source. */
-  styleHints?: (label: string) => StyleHint[];
+  /** Stylesheet rules that likely style elements with a class (`ds-link`), most relevant first; the caller knows the source. */
+  styleHints?: (className: string) => StyleHint[];
 }
 
 /** A stylesheet rule named as a likely source of a visual change: a heuristic, by the element's class. */
@@ -186,7 +186,9 @@ function toDrafts(diffs: VisualDiffSummary[], ruleId: string, styleHints?: Compa
     }
     if (changed.length) {
       const where = changed[0]!.regions[0]?.label;
-      const hints = where && styleHints ? styleHints(where).slice(0, 3) : [];
+      // Capture labels elements as tag#id.firstClass[role=…] (capture.ts): the first class names the element's styles.
+      const cls = where ? /\.(-?[_a-zA-Z][\w-]*)/.exec(where)?.[1] : undefined;
+      const hints = cls && styleHints ? styleHints(cls).slice(0, 3) : [];
       drafts.push({
         ...base,
         evidence: [...evidence, ...hints.map((h) => ({ kind: 'code' as const, file: h.file, line: h.line, snippet: h.selector }))],

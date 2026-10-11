@@ -19,7 +19,7 @@ import { styleChecks } from './checks/style.ts';
 import { componentDefinitions, globalComponents, importsOf, jsxUsages, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
 import { fileKind, parseFile, type ParsedFile } from './parse.ts';
 import { computeProvenance, type ProvenanceOptions } from './provenance.ts';
-import { indexClasses, type StyleRule } from './style-values.ts';
+import { detectTailwind, indexClasses, type StyleRule } from './style-values.ts';
 import { createTokenSet, readTokenDefs } from './tokens.ts';
 
 const MAX_FILE_CHARS = 2_000_000;
@@ -86,7 +86,12 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
   // Vue resolves template tags against global registrations too (`app.component(…)`, usually in main.ts).
   const globals = new Map<string, ImportBinding>();
   if ([...files.values()].some((f) => f.kind === 'vue')) for (const f of files.values()) for (const [name, b] of globalComponents(f, imports(f))) globals.set(name, b);
+  const usagesOf = (f: ParsedFile): JsxUsage[] => jsxUsages(f, importsOf(f, isDs), globals);
   const usages = memo((f): JsxUsage[] => jsxUsages(f, imports(f), globals));
+  let classes: Map<string, StyleRule[]> | undefined; // built on first use: only palette classes and visual changes need it
+  const styledBy = (className: string) => (classes ??= indexClasses(files.values())).get(className) ?? [];
+  let tailwind: boolean | undefined;
+  const usesTailwind = () => (tailwind ??= detectTailwind(files.values(), () => read('package.json')));
   const definitions = memo((f): ComponentDefinition[] => componentDefinitions(f, usages(f)));
 
   const project: SourceProject = {
@@ -98,6 +103,9 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
     isDs,
     inDesignSystem: (file) => matchesAny(file, policy.designSystem.paths),
     usages,
+    usagesOf,
+    styledBy,
+    usesTailwind,
     definitions,
     changes,
     readBase: input.readBase,
@@ -140,8 +148,6 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
   }
 
   drafts.push(...applyInlineDirectives(drafts, [...files.values()].filter((f) => isTarget(f.path)), loaded));
-  let classes: Map<string, StyleRule[]> | undefined; // built on first use: only visual changes need it
-  const styledBy = (className: string) => (classes ??= indexClasses(files.values())).get(className) ?? [];
   return { drafts, provenance: project.provenance, filesAnalyzed: files.size, styledBy };
 }
 

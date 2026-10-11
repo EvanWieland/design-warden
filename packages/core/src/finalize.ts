@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { isLineChanged, type ChangeSet } from './changes.ts';
-import type { Finding, FindingDraft, GuidanceRef, Location, Outcome } from './findings.ts';
+import type { Finding, FindingDraft, GuidanceRef, Outcome } from './findings.ts';
 import { decideOutcome } from './outcome.ts';
-import { compareText, matchesAny } from './paths.ts';
-import { ruleMeta } from './policy/builtin.ts';
+import { compareText, inScope, matchesAny } from './paths.ts';
+import { ruleMeta, ruleScope } from './policy/builtin.ts';
 import type { Policy, PolicyException } from './policy/schema.ts';
 
 export type ChangeScope = 'changed-lines' | 'changed-files' | 'all';
@@ -37,7 +37,7 @@ export function finalizeFindings(drafts: FindingDraft[], opts: FinalizeOptions):
       : exception
         ? { by: 'exception' as const, reason: exception.reason, exceptionId: exception.id }
         : undefined;
-    const preexisting = isPreexisting(d.location, opts);
+    const preexisting = isPreexisting(d, opts);
     const f = {
       ruleId: d.ruleId,
       ruleVersion: meta.version,
@@ -75,12 +75,21 @@ export function finalizeFindings(drafts: FindingDraft[], opts: FinalizeOptions):
   );
 }
 
-function isPreexisting(loc: Location | undefined, opts: FinalizeOptions): boolean {
+function isPreexisting(d: Pick<FindingDraft, 'ruleId' | 'location'>, opts: FinalizeOptions): boolean {
+  const loc = d.location;
   if (!opts.changes || opts.scope === 'all' || !loc) return false;
   const change = opts.changes.files.find((f) => f.path === loc.file);
   if (!change) return true;
   if (opts.scope === 'changed-files' || change.status === 'added') return false;
+  // Code moved in from a path this rule did not cover was never judged by it, so none of it is pre-existing.
+  if (change.previousPath && !coveredBefore(opts.policy, d.ruleId, change.previousPath)) return false;
   return !isLineChanged(change, loc.line, loc.endLine ?? loc.line);
+}
+
+function coveredBefore(policy: Policy, ruleId: string, file: string): boolean {
+  const rule = policy.rules.find((r) => r.id === ruleId);
+  const { include, exclude } = rule ? ruleScope(policy, rule) : policy.project;
+  return inScope(file, include, exclude);
 }
 
 function resolveGuidance(policy: Policy, keys: string[]): GuidanceRef[] {
@@ -105,7 +114,8 @@ const expiredDraft = (e: PolicyException): FindingDraft => ({
  * so it survives unrelated edits that shift line numbers.
  */
 function fingerprint(f: Pick<Finding, 'ruleId' | 'location' | 'evidence' | 'message'> & { spanText?: string }, seen: Map<string, number>): string {
-  const code = f.evidence.find((e) => e.kind === 'code');
+  // Only evidence from the finding's own file: a visual finding's style hints point elsewhere and are shared between screens.
+  const code = f.evidence.find((e) => e.kind === 'code' && e.file === f.location?.file);
   const text = code?.kind === 'code' ? code.snippet.replace(/\s+/g, ' ').trim() : f.message;
   // A multi-line span (a whole element or component) is hashed whole, so an edit anywhere in it changes the id.
   const span = f.spanText ? `\0${f.spanText.replace(/\s+/g, ' ').trim()}` : '';

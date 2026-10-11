@@ -33,4 +33,5 @@ See [ci-integration.md](../research/ci-integration.md):
 ## Consequences
 
 - No GitHub App is needed, and the annotations and summary need no licence.
+- The pull-request comment (added 2026-10-11) is the only write. A `comment` job with `pull-requests: write` checks out the base branch. It downloads the other jobs' reports by the artifact id each job outputs, not by name: the visual job runs pull-request code and could upload under any name. It titles each section by the job that produced it, renders without the token in the environment, and updates only its own marked comment. Fork and Dependabot pull requests are skipped.
 - SARIF (`--format sarif`) and GitLab Code Quality (`--format gitlab`) output were added later ([ci-integration.md](../ci-integration.md)). Uploading SARIF needs `security-events: write`, and on private repositories GitHub Code Security.

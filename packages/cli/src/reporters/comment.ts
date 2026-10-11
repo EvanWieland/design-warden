@@ -1,11 +1,26 @@
 import type { Report } from '@design-warden/core';
 import { UsageError } from '../analyze.ts';
-import { renderMarkdown } from './markdown.ts';
+import { md, renderMarkdown } from './markdown.ts';
 
 /** First line of the comment; the workflow updates the comment that starts with it instead of adding one per push. */
-export const COMMENT_MARKER = '<!-- design-warden -->';
+const COMMENT_MARKER = '<!-- design-warden -->';
 /** GitHub's comment limit, minus room for the footer the workflow appends. */
 const MAX_LENGTH = 65_536 - 1_000;
+
+/** The job a report came from, named by the workflow: it decides the section title, whatever the report claims. */
+export type CommentSection = 'check' | 'visual' | 'semantic';
+const ONLY: Record<CommentSection, Report['target']['only']> = { check: undefined, visual: 'visual', semantic: 'semantic' };
+
+/** One section of the comment: a report, or the reason a report could not be read. */
+export type CommentPart = { section?: CommentSection; report: Report } | { section?: CommentSection; unreadable: string };
+
+/** `check=report.json`, `visual=…` or `semantic=…`; a bare path is titled by the report itself. */
+export function parseSectionArg(arg: string): { section?: CommentSection; file: string } {
+  const m = /^(\w+)=(.+)$/s.exec(arg);
+  if (!m) return { file: arg };
+  if (!Object.hasOwn(ONLY, m[1]!)) throw new UsageError(`unknown comment section "${m[1]}" (use check, visual or semantic)`);
+  return { section: m[1] as CommentSection, file: m[2]! };
+}
 
 /**
  * A saved JSON report, checked for the shape the markdown renderer reads. Reports can come from
@@ -33,10 +48,18 @@ export function parseReport(text: string, file: string): Report {
 }
 
 /** One pull-request comment from saved reports, in the order given, with fewer table rows per report until it fits. */
-export function renderComment(reports: Report[]): string {
+export function renderComment(parts: CommentPart[]): string {
+  const section = (p: CommentPart, rows: number) => {
+    if ('unreadable' in p) {
+      const only = p.section && ONLY[p.section];
+      return `## Design Warden${only ? ` (${only} only)` : ''}: report unreadable\n\n${md(p.unreadable)}`;
+    }
+    const report = p.section ? { ...p.report, target: { ...p.report.target, only: ONLY[p.section] } } : p.report;
+    return renderMarkdown(report, rows);
+  };
   let body = '';
   for (const rows of [50, 20, 10, 5, 0]) {
-    body = `${COMMENT_MARKER}\n${reports.map((r) => renderMarkdown(r, rows)).join('\n\n---\n\n')}`;
+    body = `${COMMENT_MARKER}\n${parts.map((p) => section(p, rows)).join('\n\n---\n\n')}`;
     if (body.length <= MAX_LENGTH) break;
   }
   return body;

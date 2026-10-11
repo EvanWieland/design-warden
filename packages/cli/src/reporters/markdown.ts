@@ -9,16 +9,21 @@ const OUTCOME: Record<Finding['outcome'], string> = { fail: '🔴 fail', review:
  */
 const ZWSP = String.fromCharCode(0x200b); // zero-width space
 
+/** Text of a field that should be text: strings, numbers and booleans. Anything else (a forged object) renders as nothing. */
+const text = (s: unknown) => (typeof s === 'string' ? s : typeof s === 'number' || typeof s === 'boolean' ? String(s) : '');
+
 export const md = (s: unknown) =>
-  oneLine(String(s ?? ''))
+  oneLine(text(s))
     .replace(/[\\`*_[\]()<>|!#]/g, (c) => `\\${c}`)
     // GitHub autolinks bare URLs and www. names even in escaped text; a zero-width space breaks them.
     .replace(/:\/\//g, `:/${ZWSP}/`)
     .replace(/\bwww\./gi, (m) => `${m.slice(0, 3)}${ZWSP}.`)
+    // @user and @org/team would notify people from the account that posts the comment.
+    .replace(/@/g, `@${ZWSP}`)
     .slice(0, 400);
 
 const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? n : 0);
-const label = <K extends string>(table: Record<K, string>, key: unknown) => (Object.hasOwn(table, String(key)) ? table[key as K] : md(key));
+const label = <K extends string>(table: Record<K, string>, key: unknown) => (typeof key === 'string' && Object.hasOwn(table, key) ? table[key as K] : md(key));
 /** Rule ids are policy-defined names; anything else is shown as escaped text, never in a code span it could close. */
 const ruleId = (id: unknown) => (typeof id === 'string' && /^[\w./:@-]+$/.test(id) ? `\`${id}\`` : md(id));
 
@@ -39,7 +44,7 @@ export function renderMarkdown(report: Report, maxRows = 50): string {
     lines.push('| Outcome | Rule | Location | Finding |', '|---|---|---|---|');
     for (const f of rows.slice(0, maxRows)) {
       // File names come from the repository: escape them too (a name can contain markdown).
-      const where = f.location ? md(`${f.location.file}:${f.location.line}`) : '—';
+      const where = f.location ? `${md(f.location.file)}:${num(f.location.line)}` : '—';
       const origin = f.origin === 'ai' ? ' *(AI)*' : f.origin === 'heuristic' ? ' *(heuristic)*' : '';
       const fix = f.suggestion ?? (f.outcome !== 'info' ? f.remediation : undefined);
       lines.push(`| ${label(OUTCOME, f.outcome)} | ${ruleId(f.ruleId)}${origin} | ${where} | ${md(f.message)}${fix ? `<br>→ ${md(fix)}` : ''} |`);
@@ -49,7 +54,9 @@ export function renderMarkdown(report: Report, maxRows = 50): string {
     lines.push('No findings that need attention.');
   }
   lines.push('', '<details><summary>Engines</summary>', '');
-  for (const e of report.engines) lines.push(`- **${md(e.engine)}**: ${md(e.status)}${e.reason ? ` — ${md(e.reason)}` : ''}${typeof e.durationMs === 'number' ? ` (${num(e.durationMs)} ms)` : ''}`);
+  const engines = report.engines.slice(0, 10); // a forged report could list thousands
+  for (const e of engines) lines.push(`- **${md(e.engine)}**: ${md(e.status)}${e.reason ? ` — ${md(e.reason)}` : ''}${typeof e.durationMs === 'number' ? ` (${num(e.durationMs)} ms)` : ''}`);
+  if (report.engines.length > engines.length) lines.push(`- …and ${report.engines.length - engines.length} more engine(s) in the JSON report`);
   if (report.semantic) {
     const s = report.semantic;
     lines.push(

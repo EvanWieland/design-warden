@@ -39,6 +39,55 @@ describe('renames', () => {
     const changeSet = await gitChangeSet(root, 'main');
     expect(changeSet.files).toEqual([{ path: 'src/app/moved.css', status: 'renamed', previousPath: 'src/app/legacy.css', similarity: 100, changedLines: [] }]);
   });
+
+  // git scores similarity by hashed chunks in any order, so a rename that reorders (or rewrites) lines can still be R100.
+  it('takes the changed lines of a 100% similar rename from the diff, not from the score', async () => {
+    const { root } = makeProject({ 'src/app/a.css': '.a { color: var(--color-text); }\n.b { padding: var(--space-2); }\n.c { margin: var(--space-3); }\n' });
+    commitAll(root);
+    git(root, 'mv', 'src/app/a.css', 'src/app/b.css');
+    writeFiles(root, { 'src/app/b.css': '.c { margin: var(--space-3); }\n.a { color: var(--color-text); }\n.b { padding: var(--space-2); }\n' });
+    const changeSet = await gitChangeSet(root, 'main');
+    expect(changeSet.files).toHaveLength(1);
+    expect(changeSet.files[0]).toMatchObject({ path: 'src/app/b.css', status: 'renamed', previousPath: 'src/app/a.css' });
+    expect(changeSet.files[0]!.changedLines.length).toBeGreaterThan(0);
+  });
+
+  // Code moved in from a path a rule did not cover was never judged by it: two pull requests must not launder it in.
+  it('does not treat findings in a file renamed from outside the rule scope as pre-existing', async () => {
+    const policy = { ...TEST_POLICY, project: { include: ['src/**/*.{ts,tsx,css}'], exclude: ['src/vendor/**'] } };
+    const { root, loaded } = makeProject({ 'src/vendor/widget.css': '.w {\n  color: #123456;\n}\n', 'src/app/page.css': '.p { color: var(--color-text); }\n' }, policy);
+    commitAll(root);
+    git(root, 'mv', 'src/vendor/widget.css', 'src/app/widget.css');
+    const changes = await gitChangeSet(root, 'main');
+    const { drafts } = await analyzeSource({ loaded, changes, scope: 'changed-lines' });
+    const findings = finalizeFindings(drafts, { policy: loaded.policy, changes, scope: 'changed-lines', today: '2026-10-11' });
+    expect(findings.filter((f) => f.ruleId === 'color/no-literal').map((f) => [f.location?.file, f.preexisting, f.outcome])).toEqual([['src/app/widget.css', undefined, 'fail']]);
+  });
+});
+
+describe('provenance with global Vue registrations', () => {
+  // The base version must resolve <AcmeBadge> the way the head does, or an unchanged component looks modified.
+  it('resolves global registrations in the base version too, so an unchanged component stays established', async () => {
+    const main = "import { createApp } from 'vue';\nimport { Badge } from './ds';\ncreateApp({}).component('AcmeBadge', Badge);\n";
+    const vue = (note: string) => `<template>\n  <section>\n    <AcmeBadge tone="info">Live</AcmeBadge>\n    <ol><li>${note}</li></ol>\n  </section>\n</template>\n`;
+    const { root, loaded } = makeProject({ 'src/main.ts': main, 'src/app/Status.vue': vue('a') });
+    commitAll(root);
+    writeFiles(root, { 'src/app/Status.vue': vue('b') });
+    const changes = await gitChangeSet(root, 'main');
+    const { provenance } = await analyzeSource({ loaded, changes, scope: 'changed-lines', readBase: (f) => readFileAtCommit(root, changes.base.sha, f) });
+    expect(provenance.find((p) => p.component === 'Status')?.classification).toBe('established');
+  });
+});
+
+describe('finding ids', () => {
+  // A style hint (code evidence in another file) must not stand in for the finding's own evidence.
+  it('builds a finding id from code evidence in its own file only', async () => {
+    const { loaded } = makeProject({});
+    const hint = { kind: 'code' as const, file: 'src/ds/Link.css', line: 1, snippet: '.ds-link' };
+    const draft = (message: string) => ({ ruleId: 'color/no-literal', check: 'visual-diff', verdict: 'insufficient-evidence' as const, confidence: 'high' as const, origin: 'deterministic' as const, engine: 'visual' as const, message, evidence: [hint] });
+    const [a, b] = finalizeFindings([draft('Rendered output of overview changed.'), draft('Rendered output of settings changed.')], { policy: loaded.policy, scope: 'all', today: '2026-10-11' });
+    expect([a!.id, b!.id].some((id) => id.includes('-'))).toBe(false);
+  });
 });
 
 describe('pattern provenance', () => {

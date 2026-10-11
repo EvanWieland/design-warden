@@ -21,7 +21,7 @@ export interface FileChange {
   path: string; // POSIX, relative to the project root
   status: 'added' | 'modified' | 'deleted' | 'renamed';
   previousPath?: string;
-  /** Renames: how similar the two versions are, 0–100 as git reports it (100: identical content). */
+  /** Renames: how similar the two versions are, 0–100. git's score ignores line order, so 100 does not mean identical; the changed lines come from the diff. */
   similarity?: number;
   /** Added or rewritten lines, plus the lines bordering pure deletions. */
   changedLines: LineRange[];
@@ -71,18 +71,34 @@ export async function gitChangeSet(projectRoot: string, baseRef: string): Promis
   // .gitattributes setting can disguise. The patch is only used for line ranges.
   const names = parseNameStatus(await git(projectRoot, ['diff', '--name-status', '-z', '-M', '--relative', mergeBase]));
   const hunks = new Map(parseUnifiedDiff(await git(projectRoot, [...PATCH_OPTIONS, '--relative', '-M', mergeBase])).map((f) => [f.path, f.changedLines]));
-  const files: FileChange[] = names.map((n) => ({
-    ...n,
-    // A pure rename changes no lines: its findings stay pre-existing. Otherwise fail closed: if the line
-    // ranges of a changed file cannot be read, treat the whole file as changed.
-    changedLines: n.status === 'renamed' && n.similarity === 100 ? [] : hunks.get(n.path)?.length ? hunks.get(n.path)! : WHOLE_FILE,
-  }));
+  const files: FileChange[] = [];
+  for (const n of names) {
+    const ranges = hunks.get(n.path);
+    // Fail closed: if the line ranges of a changed file cannot be read, treat the whole file as changed. A rename
+    // without hunks changes no lines only if its content is unchanged byte for byte: git's similarity score ignores
+    // line order, so it is no proof.
+    const unchanged = !ranges?.length && n.status === 'renamed' && !!n.previousPath && (await sameContent(projectRoot, mergeBase, n.previousPath, n.path));
+    files.push({ ...n, changedLines: ranges?.length ? ranges : unchanged ? [] : WHOLE_FILE });
+  }
   const untracked = await git(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
   for (const p of untracked.split('\0').filter(Boolean)) files.push({ path: p, status: 'added', changedLines: WHOLE_FILE });
   return { base: { ref: baseRef, sha: mergeBase }, files };
 }
 
 const WHOLE_FILE: LineRange[] = [{ start: 1, end: Number.MAX_SAFE_INTEGER }];
+
+/** Whether the working-tree file `to` has the same blob as `from` had at `base`. Any doubt is "no". */
+async function sameContent(projectRoot: string, base: string, from: string, to: string): Promise<boolean> {
+  try {
+    const [before, now] = await Promise.all([
+      git(projectRoot, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}:./${from}`]),
+      git(projectRoot, ['hash-object', '--', `./${to}`]), // `./`: a file named like an option stays a path
+    ]);
+    return before.trim() !== '' && before.trim() === now.trim();
+  } catch {
+    return false;
+  }
+}
 
 // Patch options for line ranges. --text: a pull request's own .gitattributes ("-diff", "binary") must
 // not hide content changes. Explicit prefixes and no textconv/external drivers: user git config must

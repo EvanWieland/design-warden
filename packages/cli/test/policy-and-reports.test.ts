@@ -283,12 +283,42 @@ describe('pull-request comments', () => {
     expect(r.out.indexOf('## Design Warden (visual only): 🟡 Review requested')).toBeGreaterThan(r.out.indexOf('## Design Warden: ❌ Fail'));
   });
 
-  it('rejects a file that is not a Design Warden report, naming it (exit 2)', async () => {
+  // A comment that stops on one bad report would leave the previous run's comment in place (security review 2026-10-11).
+  it('replaces a report that cannot be read with a placeholder section, naming it on stderr', async () => {
+    const good = save(await failingReport());
     const notJson = save('{oops');
     const other = save({ reportVersion: 2, findings: [], engines: [] });
-    expect(await cli('comment', notJson)).toMatchObject({ code: 2, err: expect.stringContaining(notJson) });
-    expect(await cli('comment', other)).toMatchObject({ code: 2, err: expect.stringContaining('"reportVersion": 1') });
+    const r = await cli('comment', `check=${good}`, `visual=${notJson}`, `semantic=${other}`);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('## Design Warden: ❌ Fail');
+    expect(r.out).toContain('## Design Warden (visual only): report unreadable');
+    expect(r.out).toContain('## Design Warden (semantic only): report unreadable');
+    expect(r.err).toContain(notJson);
+    expect(r.err).toContain('"reportVersion": 1');
     expect((await cli('comment')).code).toBe(2);
+    expect((await cli('comment', `lint=${good}`)).code).toBe(2); // only check, visual and semantic sections exist
+  });
+
+  // The visual job runs pull-request code, so its report may claim to be the deterministic check: the section comes from the workflow.
+  it('titles each section by the job that produced it, not by what the report says', async () => {
+    const forged = { ...(await failingReport()), outcome: 'pass' };
+    delete forged.target.only;
+    const r = await cli('comment', `visual=${save(forged)}`);
+    expect(r.out).toContain('## Design Warden (visual only): ✅ Pass');
+    expect(r.out).not.toMatch(/## Design Warden: /);
+  });
+
+  it('survives fields that are not text, does not mention people, and caps the engine list', async () => {
+    const report = await failingReport();
+    report.findings[0].message = 'Ask @acme/design-system and @alice';
+    report.findings[0].suggestion = { toString: 1 };
+    report.engines = Array.from({ length: 5000 }, (_, i) => ({ engine: `e${i}`, status: 'completed' }));
+    const r = await cli('comment', `check=${save(report)}`);
+    expect(r.code).toBe(0);
+    expect(r.out).not.toMatch(/@acme|@alice/);
+    expect(r.out).toContain(`@${String.fromCharCode(0x200b)}acme/design-system`);
+    expect(r.out.length).toBeLessThanOrEqual(65_536);
+    expect(r.out).toContain('more engine(s)');
   });
 
   it('stays within the 65,536 characters GitHub allows in a comment', async () => {

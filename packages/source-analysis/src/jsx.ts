@@ -70,12 +70,23 @@ export function globalComponents(file: ParsedFile, imports: ImportBinding[]): Ma
   const out = new Map<string, ImportBinding>();
   if (!file.ast || file.template) return out;
   const byLocal = new Map(imports.map((i) => [i.local, i]));
+  const consts = new Map<string, string>(); // const NAME = 'AcmeBadge'
+  for (const stmt of file.ast.program.body) {
+    if (stmt.type === 'VariableDeclaration' && stmt.kind === 'const') for (const d of stmt.declarations) if (d.id.type === 'Identifier' && d.init?.type === 'StringLiteral') consts.set(d.id.name, d.init.value);
+  }
   walk(file.ast.program, (n) => {
     if (n.type !== 'CallExpression' || n.callee.type !== 'MemberExpression' || n.callee.property.type !== 'Identifier' || n.callee.property.name !== 'component') return;
     const [name, comp] = n.arguments;
-    if (n.arguments.length !== 2 || name?.type !== 'StringLiteral' || comp?.type !== 'Identifier') return;
-    const binding = byLocal.get(comp.name);
-    if (binding) out.set(pascal(name.value), binding);
+    if (n.arguments.length !== 2) return;
+    const registered =
+      name?.type === 'StringLiteral' ? name.value : name?.type === 'TemplateLiteral' && !name.expressions.length ? name.quasis[0]?.value.cooked : name?.type === 'Identifier' ? consts.get(name.name) : undefined;
+    let binding = comp?.type === 'Identifier' ? byLocal.get(comp.name) : undefined;
+    // DS.Badge through `import * as DS`
+    if (comp?.type === 'MemberExpression' && !comp.computed && comp.object.type === 'Identifier' && comp.property.type === 'Identifier') {
+      const ns = byLocal.get(comp.object.name);
+      if (ns?.imported === '*') binding = { local: comp.property.name, imported: comp.property.name, source: ns.source, isDesignSystem: ns.isDesignSystem };
+    }
+    if (registered && binding) out.set(pascal(registered), binding);
   });
   return out;
 }

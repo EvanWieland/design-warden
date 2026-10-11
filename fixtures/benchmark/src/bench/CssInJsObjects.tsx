@@ -35,4 +35,12 @@ export const Promo = () => (
     }}
   />
 );
+declare const c: { head: string };
+declare const k: string;
+export const Responsive = () => <Box sx={{ px: { xs: 1, md: '18px' }, color: { md: 'red' } }} />; /* @expect spacing/scale @expect color/semantic-tokens */
+export const Table = styled.table({ [`&.${c.head}`]: { color: '#fff' } }); /* @expect color/semantic-tokens */
+export const Runtime = styled.div({ [k]: '13px' }); /* @expect color/semantic-tokens @expect spacing/scale @expect typography/scale */
+const variants = { danger: { background: '#dc2626' } }; /* @expect color/semantic-tokens */
+export const Variant = styled.button((p: { v: 'danger' }) => variants[p.v]);
+export const Small = () => <Box sx={{ fontSize: 15 }} />; /* @expect typography/scale */
 export const used = [surface, pulse];

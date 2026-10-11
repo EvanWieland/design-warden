@@ -16,8 +16,9 @@
 #    build the app, so it holds no secrets and never blocks. Only the semantic job has a secret,
 #    visible to one step. Fork PRs and Dependabot get no secrets, so the semantic job is skipped.
 #  - Only the comment job can write (one comment per pull request, kept up to date). It checks out
-#    the base branch, never pull-request code, and renders the other jobs' JSON reports as data:
-#    the visual job built pull-request code, so its report may be forged, and every field is escaped.
+#    the base branch, never pull-request code, and renders the other jobs' JSON reports as data. The
+#    visual job built pull-request code, so anything it uploaded may be forged: reports are fetched by
+#    the artifact id each job outputs, sections are titled by job, and every field is escaped.
 
 name: Design Warden
 
@@ -42,6 +43,8 @@ jobs:
     name: Design policy (deterministic, blocking)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      report: ${{ steps.upload.outputs.artifact-id }}  # the comment job downloads this job's report by id
     steps:
       # The pull request, as data: read and diffed, never installed or executed in this job.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,6 +72,7 @@ jobs:
           --report "$RUNNER_TEMP/design-warden.json"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
         if: always()
         with:
           name: design-warden-report
@@ -78,6 +82,8 @@ jobs:
     name: Visual changes (review only, never blocks)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      report: ${{ steps.upload.outputs.artifact-id }}
     # Same browser build and fonts as the npm version, so base and head render identically.
     container: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f # the tag for people, the digest for the runner
     steps:
@@ -124,6 +130,7 @@ jobs:
 
       # A relative path: in a container job, the runner.temp expression is a host path that does not exist in the container.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
         if: always()
         with:
           name: design-warden-visual
@@ -134,6 +141,8 @@ jobs:
     needs: check                      # no model tokens spent on a change that must be fixed anyway
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      report: ${{ steps.upload.outputs.artifact-id }}
     env:
       HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     steps:
@@ -173,6 +182,7 @@ jobs:
           --format github --report "$RUNNER_TEMP/semantic-report.json"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
         if: always() && env.HAS_KEY == 'true'
         with:
           name: design-warden-semantic
@@ -202,26 +212,50 @@ jobs:
       - name: Install the trusted tool from the base branch, without install scripts
         run: corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
+      # By artifact id, from each job's outputs, never by name: the visual job runs pull-request code and could
+      # upload an artifact under another job's name, but it cannot change another job's outputs.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.check.outputs.report != ''
         with:
-          pattern: design-warden-*
-          path: ${{ runner.temp }}/reports
+          artifact-ids: ${{ needs.check.outputs.report }}
+          path: ${{ runner.temp }}/reports/check
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.visual.outputs.report != ''
+        with:
+          artifact-ids: ${{ needs.visual.outputs.report }}
+          path: ${{ runner.temp }}/reports/visual
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.semantic.outputs.report != ''
+        with:
+          artifact-ids: ${{ needs.semantic.outputs.report }}
+          path: ${{ runner.temp }}/reports/semantic
+
+      # Each section is titled by the job it came from (check=, visual=, semantic=), not by what its report says.
+      # No token in this step: the renderer and its dependencies never see it.
+      - name: Render the comment
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          args=()
+          for part in check:design-warden.json visual:visual-report.json semantic:semantic-report.json; do
+            file=$(find "$RUNNER_TEMP/reports/${part%%:*}" -name "${part#*:}" -type f 2>/dev/null | head -n 1)
+            if [ -n "$file" ]; then args+=("${part%%:*}=$file"); fi
+          done
+          if [ ${#args[@]} -eq 0 ]; then echo "No reports to comment on."; exit 0; fi
+          node packages/cli/src/bin.ts comment "${args[@]}" > "$RUNNER_TEMP/comment.md"
+          printf '\n[Workflow run](%s) for %s\n' "$RUN_URL" "${HEAD_SHA:0:7}" >> "$RUNNER_TEMP/comment.md"
 
       # Updates the comment this workflow's bot wrote (it starts with the marker), or adds one.
       - name: Post or update the comment
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          reports=()
-          for f in design-warden-report/design-warden.json design-warden-visual/visual-report.json design-warden-semantic/semantic-report.json; do
-            if [ -f "$RUNNER_TEMP/reports/$f" ]; then reports+=("$RUNNER_TEMP/reports/$f"); fi
-          done
-          if [ ${#reports[@]} -eq 0 ]; then echo "No reports to comment on."; exit 0; fi
           body="$RUNNER_TEMP/comment.md"
-          node packages/cli/src/bin.ts comment "${reports[@]}" > "$body"
-          printf '\n[Workflow run](%s)\n' "$RUN_URL" >> "$body"
+          if [ ! -f "$body" ]; then exit 0; fi
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- design-warden -->"))) | .id' | head -n 1)
           if [ -n "$id" ]; then

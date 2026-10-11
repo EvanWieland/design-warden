@@ -7,6 +7,7 @@
 
     <AcmeBadge>Late</AcmeBadge> <!-- @expect components/prop-contracts -->
     <acme-table :rows="rows" /> <!-- @expect components/prop-contracts x2 -->
+    <ns-badge>Late</ns-badge> <!-- @expect components/prop-contracts -->
   </section>
 </template>
 

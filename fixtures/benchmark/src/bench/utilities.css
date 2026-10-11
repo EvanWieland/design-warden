@@ -1,0 +1,2 @@
+/* Benchmark: a utility the project defines itself. Tailwind.tsx uses it, and there it is not a Tailwind palette class. No findings are expected here. */
+.border-white { border-color: var(--color-border-default); }
