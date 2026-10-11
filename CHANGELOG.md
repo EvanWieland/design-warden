@@ -34,6 +34,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- The example workflow's visual job uploaded its report but never the diff images: in a container job, `${{ runner.temp }}` is the host's path, which does not exist inside the container. The job now writes to `.design-warden/ci` in the workspace, and a test rejects host-path expressions in that job.
 - Outside Windows, a visual scenario run listed `node_modules` as a changed file. The workspace links the demo's dependencies through a symlink there (a junction on Windows), and the workspace's git exclude used `node_modules/`, which matches only directories.
 - The inspector service stopped answering while it compared screenshots (4–11 s for the demo), and could reset keep-alive connections. `compareCaptures` is now async and yields between captures.
 - `.js` and `.jsx` files are parsed as JavaScript with JSX. A `.js` file containing JSX used to be reported as unparseable.

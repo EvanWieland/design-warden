@@ -118,17 +118,16 @@ jobs:
           --policy "$PROJECT_DIR/design-warden.policy.json"
           --policy-ref "$BASE" --base "$BASE"
           --visual-base "$RUNNER_TEMP/captures/base" --visual-head "$RUNNER_TEMP/captures/head"
-          --artifacts "$RUNNER_TEMP/visual-artifacts"
+          --artifacts .design-warden/ci/visual-artifacts
           --only visual
-          --format github --report "$RUNNER_TEMP/visual-report.json"
+          --format github --report .design-warden/ci/visual-report.json
 
+      # A relative path: in a container job, the runner.temp expression is a host path that does not exist in the container.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: design-warden-visual
-          path: |
-            ${{ runner.temp }}/visual-report.json
-            ${{ runner.temp }}/visual-artifacts
+          path: .design-warden/ci
 
   semantic:
     name: AI design review (advisory, never blocks)
