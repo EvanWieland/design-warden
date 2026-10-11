@@ -1,0 +1,98 @@
+# Publishes the npm packages when a version tag (v0.2.1) is pushed. No npm token is stored anywhere: npm
+# trusts this workflow file through trusted publishing (OIDC), set up per package with `npm trust github`
+# (CONTRIBUTING.md, "Releasing"). Run it by hand (Actions > Release > Run workflow) to check that trust
+# without publishing anything. The repository is private, so npm adds no provenance attestations.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  trust:
+    name: Check that npm trusts this workflow (publishes nothing)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      # The same exchange npm publish makes; the short-lived publish token it returns is discarded.
+      - name: Exchange the workflow's OIDC token for each package
+        run: |
+          id_token=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r .value)
+          echo "::add-mask::$id_token"
+          failed=0
+          for name in @design-warden/core @design-warden/source-analysis @design-warden/visual-analysis @design-warden/semantic-review design-warden; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $id_token" "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}")
+            echo "$name: HTTP $code"
+            if [ "$code" != 200 ]; then failed=1; echo "::error::npm does not trust this workflow for $name"; fi
+          done
+          exit "$failed"
+
+  publish:
+    name: Test, pack and publish
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write                 # npm exchanges it for a short-lived publish token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # Trusted publishing needs npm 11.5.1 or later; pin the version the releases were tested with.
+      - run: npm install --global npm@11.19.0 && npm --version
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: All five packages carry the tag's version
+        run: |
+          version=$(node -p "require('./packages/cli/package.json').version")
+          for p in core source-analysis visual-analysis semantic-review cli; do
+            v=$(node -p "require('./packages/$p/package.json').version")
+            if [ "$v" != "$version" ]; then echo "::error::packages/$p is at $v, not $version"; exit 1; fi
+          done
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then echo "::error::tag $GITHUB_REF_NAME does not match version $version"; exit 1; fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Install Chromium for capture and browser tests
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Tests
+        run: pnpm test
+
+      - name: npm packages build, pack, install into a fresh project and run
+        run: pnpm test:pack
+
+      - name: Pack
+        run: for p in core source-analysis visual-analysis semantic-review cli; do (cd "packages/$p" && pnpm pack --pack-destination "$RUNNER_TEMP/release"); done
+
+      # Libraries first, so design-warden installs as soon as it appears. A re-run skips what is already published.
+      - name: Publish
+        working-directory: ${{ runner.temp }}/release
+        run: |
+          for t in design-warden-core design-warden-source-analysis design-warden-visual-analysis design-warden-semantic-review design-warden; do
+            name=$(tar -xzOf "$t-$VERSION.tgz" package/package.json | jq -r .name)
+            if npm view "$name@$VERSION" version > /dev/null 2>&1; then echo "$name@$VERSION is already published"; continue; fi
+            npm publish "./$t-$VERSION.tgz" --access public
+          done

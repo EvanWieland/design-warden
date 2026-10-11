@@ -612,3 +612,9 @@ On 2026-10-11 the requester asked to "finish the project": verify what was never
     - an added `color: #d93025` gave FAIL with exit 1;
     - `npx --yes design-warden@0.2.0 --version` in an empty directory printed 0.2.0.
   - `main` was fast-forwarded to the release commit, which is tagged `v0.2.0`.
+- 2026-10-11 (after the release, at the requester's request): the placeholder versions `0.0.0` and `0.0.0-stage` are deprecated (`npm deprecate "design-warden@<0.2.0" …`, one 2FA approval; npm matches prereleases). The message is "Placeholder that reserved the name; it contains no code. Install design-warden 0.2.0 or later." 0.2.0 is not deprecated and remains `latest`.
+- 2026-10-11 (trusted publishing).
+  - `.github/workflows/release.yml`: on a `v*` tag, it checks that the five versions match the tag, then runs typecheck, the full tests and the pack test, packs, and publishes with npm 11.19.0 through OIDC (`id-token: write`, no token); a re-run skips published versions. On manual dispatch, a `trust` job performs npm's OIDC exchange (`/-/npm/v1/oidc/token/exchange/package/<name>`, audience `npm:registry.npmjs.org`, read from npm 11.19's `lib/utils/oidc.js`) for each package and discards the returned token.
+  - npm's code turns provenance on only for public repositories, so this private repository gets none.
+  - CONTRIBUTING.md "Releasing"; a repo test keeps every pinned `design-warden@x.y.z` in docs and workflows equal to the package version, and the starter's schema link equal to its major.minor; the pinning tests cover `release.yml`.
+  - Found on the way: a sentence of the release docs sat inside ci-integration.md's GitLab YAML block (the YAML check failed); moved below the block, and all 8 YAML files and blocks parse.

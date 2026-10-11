@@ -44,6 +44,24 @@ pnpm eval
 
 Describe what you verified and how. A design decision with lasting consequences gets a short ADR in `docs/decisions/`.
 
+## Releasing
+
+The five npm packages (`design-warden` and `@design-warden/{core,source-analysis,visual-analysis,semantic-review}`) are released together, at one version, by `.github/workflows/release.yml`. npm trusts that workflow (trusted publishing): no npm token is stored, and no 2FA approval is needed at release time.
+
+1. Set the new version in the five `packages/*/package.json`. Move the CHANGELOG's Unreleased entries under the new version and date. Update the pinned `design-warden@x.y.z` in the docs and workflows; for a new minor version, also update the schema link (`@design-warden/core@x.y`) in `examples/policy` and `packages/cli/starter`. `tests/repo.test.ts` fails until they match.
+2. Commit, push, and wait for CI.
+3. Tag the commit and push the tag: `git tag -a vX.Y.Z -m "Design Warden X.Y.Z" && git push origin vX.Y.Z`. The Release workflow checks that the tag matches the versions, runs the type check and the full test suite, packs, and publishes the libraries before `design-warden`. A re-run skips the packages that are already published.
+4. Check `npm view design-warden version` and `npx --yes design-warden@X.Y.Z --version`.
+
+**Trusted publishing**, set up once per package (done for all five on 2026-10-11; each command asks for a 2FA approval):
+
+```bash
+npm trust github <package> --file release.yml --repo EvanWieland/design-warden --allow-publish --yes
+npm trust list <package>
+```
+
+To check the setup without publishing, run the workflow by hand (Actions > Release > Run workflow). Its `trust` job exchanges the workflow's OIDC token for each package, as `npm publish` would, and fails for any package that does not trust it. Once that passes, each package's npm settings can require two-factor authentication and disallow tokens: trusted publishing still works. The repository is private, so npm attaches no provenance attestations; they would appear automatically if it became public.
+
 ## Reporting security issues
 
 See [SECURITY.md](SECURITY.md). Please do not file public issues for vulnerabilities.

@@ -42,6 +42,16 @@ describe('repository invariants', () => {
     expect(eager).toEqual([]);
   });
 
+  // A release bumps the packages; the docs that tell people which version to pin must move with them.
+  it('pins the current package version wherever the docs and workflows name one', () => {
+    const { version } = JSON.parse(read('packages/cli/package.json')) as { version: string };
+    const files = ['README.md', 'packages/cli/README.md', 'docs/ci-integration.md', 'docs/getting-started.md', '.github/workflows/design-warden.yml', 'examples/github-actions/design-warden.yml'];
+    const stale = files.flatMap((f) => [...read(f).matchAll(/design-warden@(\d+\.\d+\.\d+)/g)].filter((m) => m[1] !== version).map((m) => `${f}: ${m[0]}`));
+    expect(stale).toEqual([]);
+    const schema = /@design-warden\/core@(\d+\.\d+)\//.exec(read('examples/policy/design-warden.policy.json'))?.[1];
+    expect(schema).toBe(version.split('.').slice(0, 2).join('.'));
+  });
+
   it('ships the starter policy in the design-warden package exactly as the example', () => {
     for (const f of ['design-warden.policy.json', 'GUIDANCE.md']) expect(read(`packages/cli/starter/${f}`), f).toBe(read(`examples/policy/${f}`));
     expect(JSON.parse(read('examples/policy/design-warden.policy.json')).$schema).toMatch(/^https:\/\/cdn\.jsdelivr\.net\/npm\/@design-warden\/core@\d+\.\d+\/schema\/policy\.schema\.json$/);
@@ -53,7 +63,7 @@ describe('repository invariants', () => {
 
   // Tags can be moved; a full commit SHA cannot. The comment keeps the version readable for updates.
   it('pins every GitHub Action, in the workflows and the docs, to a full commit SHA with its version in a comment', () => {
-    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
+    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', '.github/workflows/release.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
     const unpinned = files.flatMap((f) =>
       read(f)
         .split('\n')
@@ -65,7 +75,7 @@ describe('repository invariants', () => {
 
   // `-latest` labels move to a new OS on GitHub's schedule (ubuntu-latest → 26.04 from 2026-10-19), changing CI underneath us.
   it('pins every runner image to an OS version, in the workflows and the docs', () => {
-    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
+    const files = ['.github/workflows/ci.yml', '.github/workflows/design-warden.yml', '.github/workflows/macos.yml', '.github/workflows/release.yml', 'examples/github-actions/design-warden.yml', 'docs/ci-integration.md'];
     const floating = files.flatMap((f) => (read(f).match(/^.*runs-on:.*-latest.*$/gm) ?? []).map((line) => `${f}: ${line.trim()}`));
     expect(floating).toEqual([]);
   });

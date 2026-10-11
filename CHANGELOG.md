@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A release workflow with npm trusted publishing. Pushing a version tag runs the full checks and publishes the five packages, with no npm token stored and no 2FA approval. Run by hand, it only checks that npm trusts it. CONTRIBUTING.md documents the release steps, and a repo test keeps the version pins in the docs current.
+
+### Fixed
+
+- A sentence in ci-integration.md sat inside the GitLab job's YAML block, which made the example invalid.
+
 ## [0.2.0] - 2026-10-11
 
 The first release on npm: `design-warden` (the command line, published under that name instead of `@design-warden/cli`) and `@design-warden/core`, `@design-warden/source-analysis`, `@design-warden/visual-analysis` and `@design-warden/semantic-review`. The packages run on Node 22.18+ or 24.11+, and `design-warden` ships the starter policy in `starter/`.

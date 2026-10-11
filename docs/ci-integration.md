@@ -183,8 +183,8 @@ design-warden-code-quality:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
 
 The two worktree lines install this repository's copy of the tool, as in this repository's own pipelines. Elsewhere, replace them, and `node /tmp/tool/packages/cli/src/bin.ts`, with a pinned `npx --yes design-warden@0.2.0`.
-```
 
 Where GitLab shows the results (merge-request widget, diff, pipeline tab) depends on your GitLab tier; see GitLab's Code Quality documentation. This job has **not** been run on GitLab from this environment.
