@@ -25,7 +25,17 @@ The same style checks read the CSS in tagged templates of styled-components and 
 - A `${…}` standing alone (a mixin such as `${focusRing}`, also when a `//` comment or another mixin follows it) or in a selector (`${Link}:hover &`) is skipped; a nested `css` template is analysed where it is defined. A `${…}` as the property (`${side}: 4px`) is insufficient evidence ("sets a property chosen at runtime").
 - Templates are parsed with postcss-scss, so `//` line comments and nesting, as stylis allows them, are fine.
 - **A template that cannot be parsed**, for example with an unmatched brace, is reported as insufficient evidence once per style rule, instead of passing unread.
-- **Not read:** object styles (`styled.div({ … })`), other tags (`gql`, `sql`), `styled` or `css` imported under another name (`emStyled.div`), and helper templates such as `` ${media.md`…`} ``. An interpolation is insufficient evidence even when every branch is a literal (`${(p) => (p.big ? '15px' : '14px')}`), and one that returns CSS text (`${(p) => p.danger && 'color: #dc2626;'}`) is taken for a mixin and not read.
+- **Not read:** other tags (`gql`, `sql`), `styled` or `css` imported under another name (`emStyled.div`), and helper templates such as `` ${media.md`…`} ``. An interpolation is insufficient evidence even when every branch is a literal (`${(p) => (p.big ? '15px' : '14px')}`), and one that returns CSS text (`${(p) => p.danger && 'color: #dc2626;'}`) is taken for a mixin and not read.
+
+### CSS-in-JS object styles
+
+Object styles are read like inline style objects: `css({…})`, `styled.div({…})`, `styled(Button)({…})`, `styled('p')(…)`, `styled.div.attrs(…)({…})`, `keyframes({…})` and Emotion's `css` prop. Keys are camelCase CSS properties, and numbers are pixels, as in React and Emotion.
+
+- **Nested objects** (selectors such as `'&:hover'`, media queries, keyframe steps) are read like the top level.
+- **Functions** passed to a style call (`styled.p((p) => ({ … }))`) are read through what they return: the concise body, or each `return` in the function's body.
+- **Computed values** (`color: p.tone`, theme lookups) are **insufficient evidence** for the checks that cover the property, as for template interpolations. A spread of an object built elsewhere is insufficient evidence for every style check; a same-file constant is read.
+- **MUI's `sx` prop** is theme-aware, so only literal raw CSS is reported: a string that is not a theme path. Numbers (`p: 2`, theme spacing units), theme paths (`'primary.main'`, `'grey.500'`) and computed values are theme lookups. They are not insufficient evidence either: `sx` exists to read the theme. Shorthands (`p`, `px`, `mt`, `bgcolor`, …) are read as the CSS properties they set. Responsive arrays (`px: [1, '10px']`) and breakpoint or selector objects are read value by value. A keyword that is not a color (`borderColor: 'divider'`) is not reported.
+- **Not read:** `.attrs({…})` arguments (component props, not styles), other functions (`track({ color: 'red' })`), Emotion's `<Global styles={…}>`, JSS (`makeStyles`), React Native's `StyleSheet.create`, and style functions imported under another name.
 
 ### Vue and Svelte components
 

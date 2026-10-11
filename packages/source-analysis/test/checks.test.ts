@@ -216,6 +216,49 @@ describe('CSS-in-JS templates', () => {
   });
 });
 
+describe('CSS-in-JS object styles', () => {
+  it('reads css(), styled.x(), styled(X)() and the css prop like inline style objects, nested rules included', async () => {
+    const lines = [
+      "import styled from '@emotion/styled';",
+      "const card = css({ color: '#e11d48', '&:hover': { padding: 13 } });",
+      "export const Title = styled.h2({ gap: '1rem', '@media (min-width: 600px)': { color: 'rgb(37, 99, 235)' } });",
+      "export const Box = styled(Title)((p: { c: string }) => ({ color: p.c, margin: 'var(--space-2)' }));",
+      "export const Tag = styled('span')({ fontSize: '17px' });",
+      "export const Btn = styled.button.attrs({ color: 'red' })({ background: 'var(--color-action)' });",
+      "export const A = () => <a css={{ background: 'red' }} />;",
+      "const query = sql({ color: '#000' }); // not a style function",
+    ];
+    const d = await run({ 'src/app/S.tsx': lines.join('\n') });
+    const col = (line: number, s: string) => lines[line - 1]!.indexOf(s) + 1;
+    expect(sorted(d)).toEqual([
+      ['color/no-literal', 2, col(2, "'#e11d48'"), 'violation', 'Hardcoded color `#e11d48` in `color`.'],
+      ['spacing/scale', 2, col(2, '13 }'), 'violation', '`13px` in `padding` is not on the `--space-*` scale.'],
+      ['spacing/scale', 3, col(3, "'1rem'"), 'violation', '`1rem` in `gap` is hardcoded; the `--space-*` scale has a token for it.'],
+      ['color/no-literal', 3, col(3, "'rgb("), 'violation', 'Hardcoded color `rgb(37, 99, 235)` in `color`.'],
+      ['color/no-literal', 4, col(4, 'p.c'), 'insufficient-evidence', '`color` is computed from `p.c`; static analysis cannot confirm it resolves to a color token.'],
+      ['typography/scale', 5, col(5, "'17px'"), 'violation', '`17px` in `font-size` is not on the `--font-size-*` scale.'],
+      ['color/no-literal', 7, col(7, "'red'"), 'violation', 'Hardcoded color `red` in `background`.'],
+    ]);
+  });
+
+  it('reads only unambiguous raw CSS in sx: theme paths, theme numbers and computed values are theme lookups', async () => {
+    const lines = [
+      'declare const Box: any, size: number;',
+      'export const S = () => (',
+      "  <Box sx={{ color: 'primary.main', bgcolor: '#fff', p: 2, m: '13px', borderColor: 'divider', '&:hover': { color: 'red' }, px: [1, '10px'], fontSize: (t: any) => t.spacing(2), gap: size }} />",
+      ');',
+    ];
+    const d = await run({ 'src/app/S.tsx': lines.join('\n') });
+    const col = (s: string) => lines[2]!.indexOf(s) + 1;
+    expect(sorted(d)).toEqual([
+      ['color/no-literal', 3, col("'#fff'"), 'violation', 'Hardcoded color `#fff` in `background-color`.'],
+      ['spacing/scale', 3, col("'13px'"), 'violation', '`13px` in `margin` is not on the `--space-*` scale.'],
+      ['color/no-literal', 3, col("'red'"), 'violation', 'Hardcoded color `red` in `color`.'],
+      ['spacing/scale', 3, col("'10px'"), 'violation', '`10px` in `padding-inline` is not on the `--space-*` scale.'],
+    ]);
+  });
+});
+
 describe('DTCG token files', () => {
   const TOKENS_JSON = {
     color: {

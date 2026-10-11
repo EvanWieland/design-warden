@@ -55,10 +55,24 @@ export function styleValues(file: ParsedFile): StyleValue[] {
   const objects = localObjects(file);
   const strings = localStrings(file);
   const seen = new Set<Node>();
-  const fromObject = (obj: ObjectExpression) => {
+  const fromObject = (obj: ObjectExpression, kind: ObjectKind = INLINE) => {
     if (seen.has(obj)) return; // a style constant used twice is reported once, where it is defined
     seen.add(obj);
-    out.push(...objectStyles(file, obj, objects, fromObject));
+    out.push(...objectStyles(file, obj, objects, fromObject, kind));
+  };
+  /** Style objects an expression can produce: literals, same-file constants, arrays of them, and what a function returns. */
+  const objectsOf = (n: Node, kind: ObjectKind): void => {
+    for (const b of branches(n)) {
+      if (b.type === 'ObjectExpression') {
+        fromObject(b, kind);
+      } else if (b.type === 'Identifier' && objects.has(b.name)) {
+        fromObject(objects.get(b.name)!, kind);
+      } else if (b.type === 'ArrayExpression') {
+        for (const e of b.elements) if (e && e.type !== 'SpreadElement') objectsOf(e, kind);
+      } else {
+        for (const r of returnedValues(b)) objectsOf(r, kind);
+      }
+    }
   };
   const classes = (n: Node) => out.push(...classValues(n, strings, seen));
   /** One attribute of a JSX element or a template element (string literal or expression container). */
@@ -76,6 +90,9 @@ export function styleValues(file: ParsedFile): StyleValue[] {
       const obj = expr.type === 'ObjectExpression' ? expr : expr.type === 'Identifier' ? objects.get(expr.name) : undefined;
       if (obj) fromObject(obj);
       else out.push(at(expr, { property: 'style', value: null, expression: source(file, expr), source: 'jsx-style', definesCustomProperty: false, wholeObject: true }));
+    } else if ((name === 'css' || name === 'sx') && expr) {
+      // Emotion's css prop and MUI's sx prop. css={css`…`} and css={css({…})} are read as the template or call they are.
+      objectsOf(expr, name === 'sx' ? SX : CSS_IN_JS);
     } else if (COLOR_PROP.test(name)) {
       // Color-like props on any element or component, e.g. <Icon color="#fff" /> or fill={on ? '#000' : 'none'}.
       // Only literal values are judged: passing a variable (often a token) through a prop is normal.
@@ -90,6 +107,8 @@ export function styleValues(file: ParsedFile): StyleValue[] {
       out.push(...templateCss(file, node.quasi, 'css-in-js', { lead: `The \`${source(file, node.tag)}\` template could not be parsed as CSS`, offset: node.start ?? 0 }, scss));
       return;
     }
+    // Object styles: css({…}), styled.div({…}), styled(Button)((p) => ({…})), keyframes({…}).
+    if (node.type === 'CallExpression' && isStyleTag(node.callee)) for (const arg of node.arguments) objectsOf(arg as Node, CSS_IN_JS);
     if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)) {
       for (const arg of node.arguments) classes(arg as Node);
       return;
@@ -221,33 +240,76 @@ function statementStart(css: string): boolean {
   }
 }
 
-function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<string, ObjectExpression>, nested: (o: ObjectExpression) => void): StyleValue[] {
+/** How a style object is read: an inline style, CSS-in-JS (`css({…})`, the `css` prop) or MUI's theme-aware `sx` prop. */
+interface ObjectKind {
+  source: 'jsx-style' | 'css-in-js';
+  sx?: boolean;
+}
+const INLINE: ObjectKind = { source: 'jsx-style' };
+const CSS_IN_JS: ObjectKind = { source: 'css-in-js' };
+const SX: ObjectKind = { source: 'css-in-js', sx: true };
+
+/** MUI system shorthands, as the CSS properties they set. */
+const SX_ALIASES: Record<string, string> = {
+  m: 'margin', mt: 'margin-top', mr: 'margin-right', mb: 'margin-bottom', ml: 'margin-left', mx: 'margin-inline', my: 'margin-block', marginX: 'margin-inline', marginY: 'margin-block',
+  p: 'padding', pt: 'padding-top', pr: 'padding-right', pb: 'padding-bottom', pl: 'padding-left', px: 'padding-inline', py: 'padding-block', paddingX: 'padding-inline', paddingY: 'padding-block',
+  bgcolor: 'background-color',
+};
+/** A theme path such as `primary.main` or `grey.500`, which MUI resolves through the theme. */
+const THEME_PATH = /^[a-z][\w-]*(\.[\w-]+)+$/i;
+
+function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<string, ObjectExpression>, nested: (o: ObjectExpression, kind: ObjectKind) => void, kind: ObjectKind): StyleValue[] {
   const out: StyleValue[] = [];
   for (const p of obj.properties) {
     if (p.type === 'SpreadElement') {
+      if (kind.sx) continue; // theme-aware props passed through: nothing literal to judge
       const arg = unwrap(p.argument);
       const spread = arg.type === 'ObjectExpression' ? arg : arg.type === 'Identifier' ? objects.get(arg.name) : undefined;
-      if (spread) nested(spread);
-      else out.push(at(arg, { property: 'style', value: null, expression: `...${source(file, arg)}`, source: 'jsx-style', definesCustomProperty: false, wholeObject: true }));
+      if (spread) nested(spread, kind);
+      else out.push(at(arg, { property: 'style', value: null, expression: `...${source(file, arg)}`, source: kind.source, definesCustomProperty: false, wholeObject: true }));
       continue;
     }
     if (p.type !== 'ObjectProperty' || p.computed) continue;
     const key = p.key.type === 'Identifier' ? p.key.name : p.key.type === 'StringLiteral' ? p.key.value : null;
     if (!key) continue;
-    const property = key.startsWith('--') ? key : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-    for (const b of branches(p.value as Node)) {
+    const value = unwrap(p.value as Node);
+    if (value.type === 'ObjectExpression') {
+      nested(value, kind); // a nested rule: selector, media query, keyframe step or responsive breakpoints
+      continue;
+    }
+    const property = key.startsWith('--') ? key : kind.sx && SX_ALIASES[key] ? SX_ALIASES[key] : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+    // sx takes responsive arrays (`px: [1, '10px']`).
+    const candidates = kind.sx && value.type === 'ArrayExpression' ? value.elements.filter((e): e is NonNullable<typeof e> => !!e && e.type !== 'SpreadElement').flatMap((e) => branches(e)) : branches(value);
+    for (const b of candidates) {
       const lit = literalOf(b);
       if (lit === null) continue; // `undefined` / `null` unset the property
+      // MUI resolves numbers (`p: 2`), theme paths and computed values through the theme: only literal CSS is raw.
+      if (kind.sx && (typeof lit !== 'string' || THEME_PATH.test(lit))) continue;
       out.push(
         at(b, {
           property,
-          source: 'jsx-style',
+          source: kind.source,
           definesCustomProperty: key.startsWith('--'),
           ...(lit !== undefined ? { value: lit } : { value: null, expression: source(file, b) }),
         }),
       );
     }
   }
+  return out;
+}
+
+/** What a function passed to a style call returns: the concise body, or every `return` of its block (not of nested functions). */
+function returnedValues(fn: Node): Node[] {
+  if (fn.type !== 'ArrowFunctionExpression' && fn.type !== 'FunctionExpression') return [];
+  if (fn.body.type !== 'BlockStatement') return [fn.body];
+  const out: Node[] = [];
+  const visit = (s: Node | null | undefined): void => {
+    if (!s) return;
+    if (s.type === 'ReturnStatement' && s.argument) out.push(s.argument);
+    else if (s.type === 'BlockStatement') s.body.forEach(visit);
+    else if (s.type === 'IfStatement') [s.consequent, s.alternate].forEach(visit);
+  };
+  visit(fn.body);
   return out;
 }
 

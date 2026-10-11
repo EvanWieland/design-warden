@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- CSS-in-JS object styles. `css({…})`, `styled.div({…})`, `styled(Button)((p) => ({…}))`, `keyframes({…})` and Emotion's `css` prop are read like inline style objects, nested selectors and media queries included. MUI's `sx` prop is read too, reporting only literal raw CSS: numbers, theme paths and computed values are theme lookups.
 - Pull-request comments. `design-warden comment <report.json>…` renders saved JSON reports as one markdown comment, and the example workflow's new `comment` job keeps one comment per pull request up to date. It is the only job with write access (`pull-requests: write`). It checks out the base branch only and treats the reports as data. The markdown renderer now escapes or type-checks every report field, because the visual job builds pull-request code and its report may be forged.
 - `no-important` check (`styles/no-important` in the demo policy): `!important` in every CSS source: CSS and SCSS files, Vue and Svelte `<style>` blocks, static `style` attributes and CSS-in-JS templates.
 - `typography/scale` rule in the demo policy: font sizes must use `--font-size-*` tokens. It reuses `spacing-scale` with other options.

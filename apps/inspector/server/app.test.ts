@@ -36,6 +36,13 @@ function request(method: string, url: string, opts: { headers?: Record<string, s
 const post = (body: object, headers: Record<string, string> = { 'content-type': 'application/json' }) =>
   request('POST', '/api/runs', { headers, body: JSON.stringify(body) });
 
+// A run blocks this process's event loop for seconds (capture, compare). When it resumes, a client's due poll can
+// reuse a keep-alive socket in the same tick that Node's default 5 s idle timeout closes it: ECONNRESET (full suite, 2026-10-11).
+it('keeps idle connections open far longer than a run can block the event loop', () => {
+  expect(server.keepAliveTimeout).toBeGreaterThanOrEqual(60_000);
+  expect(server.headersTimeout).toBeGreaterThan(server.keepAliveTimeout);
+});
+
 describe('inspector service security', () => {
   it('rejects requests addressed to another host name (DNS rebinding)', async () => {
     expect((await request('GET', '/api/health', { headers: { host: 'evil.example:80' } })).status).toBe(421);

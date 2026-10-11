@@ -50,7 +50,7 @@ Visual mode: `pnpm scenario run token-change --visual` (16 captures per side, 2 
 
 ## 2. Deterministic benchmark
 
-`fixtures/benchmark/src/bench/` holds 21 files of realistic snippets, analysed with the demo policy. An `@expect <rule-id>` marker (optionally `x<n>`) labels each finding expected on that line. The corpus deliberately includes:
+`fixtures/benchmark/src/bench/` holds 22 files of realistic snippets, analysed with the demo policy. An `@expect <rule-id>` marker (optionally `x<n>`) labels each finding expected on that line. The corpus deliberately includes:
 
 - **Tricky negatives**: allowed keywords, `url(#id)`, percentages, non-spacing lengths, `calc()` multipliers, hidden and radio inputs, data constants, wrappers that use the real component, `!important` inside comments, strings and `url()`, relative font sizes (including `em`, which the typography rule leaves out) and lengths in other properties, Tailwind classes that use tokens, theme classes, and class-like strings outside class names, CSS-in-JS mixins (also followed by a comment), selector interpolations and non-style tagged templates, Sass variables built from tokens, mixins without arguments (also with empty parentheses) and content-block mixins, and Vue and Svelte components that pass required props through kebab-case, shorthand (Vue `:tone`), bound values, spreads or a Svelte snippet.
 - **Three traps for the name heuristic**:
@@ -69,21 +69,21 @@ Baseline:
 
 | Rule | TP | FP | FN | Precision | Recall |
 |---|---:|---:|---:|---:|---:|
-| `color/semantic-tokens` | 46 | 0 | 0 | 100.0% | 100.0% |
+| `color/semantic-tokens` | 52 | 0 | 0 | 100.0% | 100.0% |
 | `components/design-system-controls` | 10 | 0 | 0 | 100.0% | 100.0% |
 | `components/prop-contracts` | 14 | 0 | 0 | 100.0% | 100.0% |
-| `components/reuse-existing` (heuristic) | 2 | 1 | 0 | 66.7% | 100.0% |
+| `components/reuse-existing` (heuristic) | 3 | 1 | 0 | 75.0% | 100.0% |
 | `policy/inline-exception-rejected` | 2 | 0 | 0 | 100.0% | 100.0% |
-| `spacing/scale` | 37 | 0 | 0 | 100.0% | 100.0% |
+| `spacing/scale` | 39 | 0 | 0 | 100.0% | 100.0% |
 | `styles/no-important` | 10 | 0 | 0 | 100.0% | 100.0% |
 | `tokens/semantic-only` | 7 | 0 | 0 | 100.0% | 100.0% |
-| `typography/scale` | 12 | 0 | 1 | 100.0% | 92.3% |
-| **All** | **140** | **1** | **1** | **99.3%** | **99.3%** |
+| `typography/scale` | 13 | 0 | 1 | 100.0% | 92.9% |
+| **All** | **150** | **1** | **1** | **99.3%** | **99.3%** |
 
 - **Location accuracy:** 0 location misses (every reported finding of the right rule is on the labelled line).
-- **Insufficient evidence:** 15.6% of counted findings are `insufficient-evidence`. They are runtime values the engine refuses to guess about.
+- **Insufficient evidence:** 15.2% of counted findings are `insufficient-evidence`. They are runtime values the engine refuses to guess about.
 - **Latency:** the source engine analyses the corpus in 140–210 ms; a full scan of the demo (49 source files) takes 160–190 ms (2026-10-11). It was ~40 ms and ~80–130 ms before the backlog added the Tailwind, CSS-in-JS, SCSS, Vue and Svelte readers.
-- **History:** before the review the corpus had 12 files and 52 labels, scored 49/2/3 (96.1% precision, 94.2% recall). Both traps that were false positives then are now correct negatives. The new audit labels add the rest of the change. Since then: `no-important` added `important.css` (6 labels, all hits); `typography/scale` added `typography.css` (7 labels, one a known miss) and one insufficient-evidence label in `AuditCases.tsx`; Tailwind arbitrary values added `Tailwind.tsx` (14 labels, all hits) and turned the two Tailwind misses in `Limitations.tsx` into hits; CSS-in-JS templates added `CssInJs.tsx` (11 labels, all hits, three of them for an unparseable template) and turned the last miss in `Limitations.tsx` into a hit; SCSS added `styles.scss` (11 labels, all hits), and with postcss-scss the `//`-commented template in `CssInJs.tsx` now parses (its three insufficient-evidence labels became one hit, and an unmatched-brace template keeps that case); Vue and Svelte added `VueOrders.vue` and `SvelteOrders.svelte` (6 labels each, all hits). The fixes after the 2026-10-11 review added 9 labels, all hits: a class constant and `classNames()` in `Tailwind.tsx`; a namespaced `<DS.Badge>` and `!important` in an inline style and a `<style>` block in `VueOrders.vue`; a namespaced component and an inline style mixing literals and `{…}` in `SvelteOrders.svelte`; `!important` in a CSS-in-JS template. Tricky negatives cover the rest (an `em` font size, `@include truncate()`, a mixin followed by a comment, Vue's `:tone` shorthand, a Svelte snippet prop). Like the audit cases, they were written after the fixes.
+- **History:** before the review the corpus had 12 files and 52 labels, scored 49/2/3 (96.1% precision, 94.2% recall). Both traps that were false positives then are now correct negatives. The new audit labels add the rest of the change. Since then: `no-important` added `important.css` (6 labels, all hits); `typography/scale` added `typography.css` (7 labels, one a known miss) and one insufficient-evidence label in `AuditCases.tsx`; Tailwind arbitrary values added `Tailwind.tsx` (14 labels, all hits) and turned the two Tailwind misses in `Limitations.tsx` into hits; CSS-in-JS templates added `CssInJs.tsx` (11 labels, all hits, three of them for an unparseable template) and turned the last miss in `Limitations.tsx` into a hit; SCSS added `styles.scss` (11 labels, all hits), and with postcss-scss the `//`-commented template in `CssInJs.tsx` now parses (its three insufficient-evidence labels became one hit, and an unmatched-brace template keeps that case); Vue and Svelte added `VueOrders.vue` and `SvelteOrders.svelte` (6 labels each, all hits). The fixes after the 2026-10-11 review added 9 labels, all hits: a class constant and `classNames()` in `Tailwind.tsx`; a namespaced `<DS.Badge>` and `!important` in an inline style and a `<style>` block in `VueOrders.vue`; a namespaced component and an inline style mixing literals and `{…}` in `SvelteOrders.svelte`; `!important` in a CSS-in-JS template. Tricky negatives cover the rest (an `em` font size, `@include truncate()`, a mixin followed by a comment, Vue's `:tone` shorthand, a Svelte snippet prop). Like the audit cases, they were written after the fixes. CSS-in-JS object styles added `CssInJsObjects.tsx` (10 labels, all hits): nine for object styles and `sx`, and one `components/reuse-existing` for a hand-made copy of the design system's `Stack`.
 
 The exact mismatch list is pinned in `tools/harness/test/benchmark.test.ts`. That test is the regression guard for known false positives and negatives: fixing one, or introducing one, fails the test until the labels and this table are updated together.
 

@@ -47,7 +47,7 @@ export function createInspector(opts: InspectorOptions): http.Server {
     res.end(JSON.stringify(body));
   };
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     res.setHeader('x-content-type-options', 'nosniff');
     res.setHeader('referrer-policy', 'no-referrer');
     res.setHeader(
@@ -64,6 +64,11 @@ export function createInspector(opts: InspectorOptions): http.Server {
       json(res, 500, { error: (err as Error).message });
     }
   });
+  // A run blocks the event loop for seconds. With Node's 5 s default, a poll that falls due when it resumes can
+  // reuse a keep-alive socket in the same tick as the idle timeout closes it, and the client sees ECONNRESET.
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
+  return server;
 
   async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
     const parts = url.pathname.split('/').filter(Boolean).slice(1); // after "api"
