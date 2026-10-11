@@ -1,6 +1,14 @@
-# Design Warden
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="" width="96" height="96">
+</p>
 
-**Your design skill instructs the coding agent. Design Warden independently checks the result.**
+<h1 align="center">Design Warden</h1>
+
+<p align="center"><strong>Your design skill instructs the coding agent. Design Warden independently checks the result.</strong></p>
+
+<p align="center">
+  <img src="docs/assets/inspector.png" alt="The Design Warden inspector after running the hardcoded-color scenario: result FAIL with one blocking finding, color/semantic-tokens at src/pages/OverviewPage.css:3, matching the scenario's expected outcome.">
+</p>
 
 Design Warden verifies frontend pull requests against a design-system policy and reports evidence-backed findings. Each finding has a rule, a location, guidance and a fix, plus one CI outcome: pass, review requested, or fail. It is built for teams whose UI is increasingly written by AI coding agents. Those agents can have extensive design guidance and still produce interfaces that drift: plausible colors that bypass tokens, raw controls, missing states, hand-made copies of existing components.
 
@@ -25,6 +33,12 @@ Changes: 2 file(s) vs main (merge base 43a6b77e) · scope: changed-lines
 Engines: source ok 208 ms · visual skipped (no captures given (use --visual-base and --visual-head)) · semantic skipped (not requested (use --semantic <provider>))
 Result: FAIL - 1 blocking, 0 need review, 0 info (0 suppressed, 0 pre-existing) · exit 1
 ```
+
+The optional visual engine compares screenshots of the base and head builds and numbers every changed region. In the token-change scenario, two primitive blue tokens become violet, which restyles primary actions, links and info badges on every screen:
+
+<p align="center">
+  <img src="docs/assets/visual-diff.png" alt="Visual change viewer for orders/default/mobile: before, after and diff side by side. The New order button turned from blue to violet; the changed regions are numbered on all three images.">
+</p>
 
 ## How it works
 
@@ -153,6 +167,12 @@ Every job runs Design Warden and loads the policy from the base branch, so a pul
 
 What holds, how it is tested, and what is **not** protected: [docs/security.md](docs/security.md), [SECURITY.md](SECURITY.md).
 
+In the agent-evasion scenario, the recorded model response cites a quote that is not in the file and tries to approve the change through a rule that does not exist. Verification rejects both:
+
+<p align="center">
+  <img src="docs/assets/semantic-review.png" width="640" alt="Semantic review panel: provider replay, no network, 3 files sent. Accepted 1, downgraded 0, rejected 2. Rejected: a finding whose quoted text is not in the file (fabricated evidence), and an approve-all finding for an unknown rule.">
+</p>
+
 ## Status and limitations
 
 | Implemented | Not yet |
@@ -165,7 +185,7 @@ What holds, how it is tested, and what is **not** protected: [docs/security.md](
 | Terminal, JSON, markdown, SARIF, GitLab Code Quality, GitHub annotations, summary and outputs | PR comments |
 | Runs from source on Node ≥ 24.11; npm packages build to `dist/` and are tested by packing and installing them | Publishing to npm (the packages are still `private`); Node versions other than 24 |
 
-The tool was developed and tested on Windows 11. The CI workflow targets Ubuntu but has not been executed on GitHub from this environment.
+The tool was developed and tested on Windows 11. CI on Ubuntu has run once on GitHub: install, type check and 267 of 268 tests passed. The failing test's fix is not yet verified on Linux, and the later steps (browser tests, packaging, audit) have not run there.
 
 ## Documentation
 

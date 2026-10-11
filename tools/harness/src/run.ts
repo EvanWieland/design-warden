@@ -49,8 +49,9 @@ export async function runScenario(id: string, opts: RunOptions = {}): Promise<Sc
   step('preparing an isolated git workspace from apps/demo');
   fs.cpSync(DEMO_DIR, workspace, { recursive: true, filter: (src) => !COPY_EXCLUDE.has(path.basename(src)) });
   git(workspace, 'init', '-q', '-b', 'main');
-  // The dependency junction added for visual builds must not show up as changed files.
-  fs.appendFileSync(path.join(workspace, '.git', 'info', 'exclude'), '\nnode_modules/\n');
+  // The dependency link added for visual builds must not show up as changed files. No trailing slash:
+  // off Windows the link is a symlink, which git treats as a file, and `node_modules/` matches only directories.
+  fs.appendFileSync(path.join(workspace, '.git', 'info', 'exclude'), '\nnode_modules\n');
   git(workspace, 'add', '-A');
   git(workspace, 'commit', '-q', '-m', 'base: clean demo');
 

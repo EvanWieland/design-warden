@@ -94,8 +94,8 @@ On 2026-10-10, after 0.1.0 was complete, the requester asked to "build everythin
 
 **Needs the requester.** Do not attempt these without them:
 - the live-model evaluation (`pnpm eval:semantic --provider anthropic`): needs an API key and consent to send the scenario files;
-- commits, pushes and runs on GitHub: need an explicit request and a repository. No commits have been made; the directory is `git init`-ed with everything untracked;
-- Linux or macOS runs: this machine has no WSL, Docker or `gh` (checked 2026-10-10).
+- commits and pushes: only on an explicit request. The repository is https://github.com/EvanWieland/design-warden (private); `main` holds the initial commit `6a86900`, and later work is uncommitted until asked;
+- Linux runs happen only in GitHub Actions (this machine has no WSL, Docker or `gh`), so they need a push. macOS has never run.
 - npm: publishing the `@design-warden/*` packages, which are still `private` (the name and the organization are reserved; see the 2026-10-11 npm entry).
 
 ## Risks
@@ -468,3 +468,14 @@ On 2026-10-10, after 0.1.0 was complete, the requester asked to "build everythin
   - `npm publish` of the placeholder (README and package.json, 337 B, no code). npm only offers its link-based 2FA to an interactive terminal, so it ran with a preload that sets `isTTY` and `--browser=false`; the requester approved the printed link. Result: `+ design-warden@0.0.0`.
   - `npm view design-warden`: maintainer `evanwieland`, created 2026-10-11T17:29:19Z; right after publishing the registry still showed `0.0.0-stage` ("being processed").
   - The requester created the `design-warden` organization: `https://registry.npmjs.org/-/org/design-warden/package` returns 200 `{}` (404 before).
+- 2026-10-11 (pushed to GitHub; first CI run; README visuals):
+  - At the requester's request: branch renamed `master` → `main`, remote `origin` = `https://github.com/EvanWieland/design-warden.git`, one commit of 294 files. Before committing: no ignored or generated files staged, and a secret-pattern scan found only the fake keys in the redaction tests. GitHub refused the first push ("push declined due to email privacy restrictions"); the commit was redone with the requester's no-reply address (set for this repository only) and pushed as `6a86900`.
+  - CI run 38160917205 on `ubuntu-latest`: checkout, Node 24, `pnpm install --frozen-lockfile` and `pnpm typecheck` passed; `pnpm test` failed 1 of 268, so the later steps (browser tests, check:demo, eval, pack test, audit) were skipped. The failure: `visual-scenarios.test.ts` got `["src/design-system/tokens.css", "node_modules"]` as changed files. Cause: off Windows, `fs.symlinkSync(…, 'junction')` makes a symlink, which git treats as a file, and the workspace exclude `node_modules/` matches only directories. Reproduced locally with git: an entry named `node_modules` that is not a directory shows as `??` under `node_modules/` and disappears under `node_modules`. Fixed in `tools/harness/src/run.ts` (exclude `node_modules`). After the fix, locally: `pnpm typecheck` exit 0; `pnpm test` 17 files, **268 passed**. Not yet verified on Linux: that needs a push and a CI re-run.
+  - README visuals: a hand-drawn logo and three screenshots captured from real runs (throwaway Playwright scripts in the session scratchpad, driving the built inspector on port 4402 the way `tests/e2e/inspector.spec.ts` does):
+    - `docs/assets/logo.svg`: hand-drawn mark (a shield holding a check drawn as a vector path with anchor points), checked at 112, 32 and 16 px on GitHub's light and dark backgrounds;
+    - `docs/assets/inspector.png` (hero): the hardcoded-color scenario, result FAIL, matching expectations;
+    - `docs/assets/visual-diff.png`: token-change with visual capture, viewer on `orders/default/mobile` (0.87% of pixels, 6 regions);
+    - `docs/assets/semantic-review.png`: agent-evasion with the replayed model response (accepted 1, rejected 2);
+    - The hero and the diff are framed (rounded border, fade at the bottom); the AI panel keeps its own card border, with transparent corners. All RGBA at 2x, 147 to 439 KB. All README links and image paths resolve (41 files, 0 broken links).
+    - The README's status line now reflects the first CI run.
+  - Independent review: the fix is correct and complete. It traced `gitChangeSet` (tracked changes plus untracked files that git does not ignore), confirmed the base commit is made before the link exists and that the inspector uses the same `runScenario`, and found nothing else that is junction-specific. Its four doc and image findings are fixed: the README overstated the CI status; the diff's alt text counted a region below the crop; the AI panel image was not framed (light corners on dark backgrounds); a sliver of the card above the hero's result panel showed.

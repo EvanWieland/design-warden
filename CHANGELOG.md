@@ -33,6 +33,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Outside Windows, a visual scenario run listed `node_modules` as a changed file. The workspace links the demo's dependencies through a symlink there (a junction on Windows), and the workspace's git exclude used `node_modules/`, which matches only directories.
 - The inspector service stopped answering while it compared screenshots (4–11 s for the demo), and could reset keep-alive connections. `compareCaptures` is now async and yields between captures.
 - `.js` and `.jsx` files are parsed as JavaScript with JSX. A `.js` file containing JSX used to be reported as unparseable.
 - Provenance reads a reference pattern from the base when the change edits the reference file itself, so editing a reference can no longer make new code look established.
