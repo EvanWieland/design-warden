@@ -1,5 +1,6 @@
-// Tailwind classes with arbitrary values, read as the CSS they produce. No Tailwind dependency:
-// theme classes such as `p-4` depend on the project's Tailwind config and are not judged.
+// Tailwind classes with arbitrary values, read as the CSS they produce, and color utilities that name the
+// default palette, read as the theme variable they reference. No Tailwind dependency: other theme classes
+// such as `p-4` depend on the project's Tailwind config and are not judged.
 
 /** Utility prefixes the style checks care about, mapped to the CSS property they set. */
 const PROPERTY: Record<string, string> = {
@@ -40,6 +41,27 @@ export function arbitraryValue(cls: string): { property: string; value: string }
   if (negative) value = `calc(${value} * -1)`; // what Tailwind generates
   const property = prefix === 'text' ? (hint === 'length:' || (!hint && LENGTH_LIKE.test(value)) ? 'font-size' : 'color') : (PROPERTY[prefix] ?? prefix);
   return { property, value };
+}
+
+const PALETTE = '(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|[1-9]00|950)|black|white';
+// The palette is part of the pattern, so `text-shadow-red-500` backtracks to the `text-shadow` utility.
+const PALETTE_UTILITY = new RegExp(`^(bg|text|border(?:-[xytrblse])?|divide|outline|ring(?:-offset)?|inset-ring|fill|stroke|decoration|accent|caret|placeholder|from|via|to|shadow|inset-shadow|text-shadow|drop-shadow)-(${PALETTE})$`);
+
+/**
+ * A color utility that names Tailwind's default palette (`hover:bg-red-500/50`), read as the theme
+ * variable Tailwind v4 compiles it to: `var(--color-red-500)`. `color` is the palette name. Other theme
+ * classes are not judged: sizes and keywords (`text-sm`, `border-2`) are not colors, and a project's own
+ * color names (`bg-danger`) are its tokens.
+ */
+export function themeColor(cls: string): { property: string; value: string; color: string } | null {
+  const u = cls
+    .slice(variantEnd(cls))
+    .replace(/^!|!$/g, '')
+    .replace(/\/(?:\d+|\[[^\]]*\]|\([^)]*\))$/, ''); // opacity modifier: /50, /[0.35], /(--alpha)
+  const m = PALETTE_UTILITY.exec(u);
+  if (!m) return null;
+  const [, prefix, color] = m as unknown as [string, string, string];
+  return { property: prefix === 'text' ? 'color' : (PROPERTY[prefix] ?? prefix), value: `var(--color-${color})`, color };
 }
 
 /** Index after the last variant (`md:`, `data-[state=open]:`), ignoring colons inside brackets. */

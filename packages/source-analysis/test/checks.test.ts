@@ -163,7 +163,7 @@ describe('Tailwind arbitrary values', () => {
       'src/app/U.tsx': [
         "const label = 'p-[13px]';",
         'export const U = () => (',
-        '  <div className="p-[var(--space-3)] p-(--space-2) text-[color:var(--color-text)] p-4 text-red-500 w-[240px] bg-[url(/hero.png)]" title="text-[#fff]">',
+        '  <div className="p-[var(--space-3)] p-(--space-2) text-[color:var(--color-text)] p-4 text-danger w-[240px] bg-[url(/hero.png)]" title="text-[#fff]">',
         '    {label}',
         '  </div>',
         ');',
@@ -175,6 +175,33 @@ describe('Tailwind arbitrary values', () => {
   it('validates token references in classes, including the v4 shorthand', async () => {
     const d = await run({ 'src/app/V.tsx': 'export const V = () => <div className="p-(--space-9)" />;' }, 'tokens/semantic');
     expect(d.map((x) => [x.message, x.suggestion])).toEqual([['`--space-9` is not a defined design token.', 'Did you mean var(--space-2)?']]);
+  });
+
+  // Tailwind v4 compiles a color utility to its theme variable: bg-red-500 sets var(--color-red-500).
+  it('reads default-palette color classes as token references, judged by token-usage; sizes and keywords are not colors', async () => {
+    const lines = [
+      'export const T = () => (',
+      '  <div className="bg-red-500 hover:text-white border-t-slate-200/50 md:ring-offset-blue-600 text-sm border-2 bg-cover text-danger bg-transparent from-10% shadow-lg" />',
+      ');',
+    ];
+    const d = await run({ 'src/app/T.tsx': lines.join('\n') });
+    const col = (s: string) => lines[1]!.indexOf(s) + 1;
+    expect(sorted(d)).toEqual([
+      ['tokens/semantic', 2, col('bg-red-500'), 'violation', 'Class `bg-red-500` uses `--color-red-500`, which is not a defined design token.'],
+      ['tokens/semantic', 2, col('hover:text-white'), 'violation', 'Class `hover:text-white` uses `--color-white`, which is not a defined design token.'],
+      ['tokens/semantic', 2, col('border-t-slate'), 'violation', 'Class `border-t-slate-200/50` uses `--color-slate-200`, which is not a defined design token.'],
+      ['tokens/semantic', 2, col('md:ring-offset'), 'violation', 'Class `md:ring-offset-blue-600` uses `--color-blue-600`, which is not a defined design token.'],
+    ]);
+  });
+
+  it('suggests the semantic class with the same value when a palette class uses an internal token', async () => {
+    const policy = { ...TEST_POLICY, tokens: { sources: ['src/ds/tokens.css', 'src/ds/palette.css'], allowedPrefixes: ['--color-action', '--color-text', '--color-danger', '--space-', '--font-size-'] } };
+    const { loaded } = makeProject({ 'src/ds/palette.css': ':root { --color-red-700: #b91c1c; --color-sky-300: #7dd3fc; }', 'src/app/T.tsx': 'export const T = () => <p className="hover:text-red-700/80 bg-sky-300" />;' }, policy);
+    const { drafts } = await analyzeSource({ loaded });
+    expect(drafts.filter((d) => d.ruleId === 'tokens/semantic').map((x) => [x.message, x.suggestion])).toEqual([
+      ['Class `hover:text-red-700/80` uses `--color-red-700`, which is an internal token; application code must use semantic tokens.', 'Use `hover:text-danger/80` (var(--color-danger)), which has the same value.'],
+      ['Class `bg-sky-300` uses `--color-sky-300`, which is an internal token; application code must use semantic tokens.', undefined],
+    ]);
   });
 });
 

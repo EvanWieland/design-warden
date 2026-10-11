@@ -14,7 +14,8 @@ The style checks (`no-hardcoded-color`, `spacing-scale`, `token-usage`) also rea
 - **Where:** literal `className` strings (also in `{…}`, every branch of `?:`/`&&`/`??`, and the static parts of template literals), the arguments of `clsx`, `cn`, `classnames`, `classNames`, `cx`, `twMerge` and `twJoin` (strings, arrays and object keys), and same-file `const` strings used as classes (`className={base}`, reported where the constant is written), in TS/TSX/JS files and in Vue and Svelte class attributes.
 - **What:** `p-[13px]` (padding), `text-[#e11d48]` (color), `text-[15px]` (font size), `bg-[…]`, `border-[…]`, `shadow-[0_1px_2px_#000]`, gap, margin and the other spacing and color utilities, arbitrary properties (`[padding:13px]`) and the v4 variable shorthand (`p-(--space-3)` is `var(--space-3)`). Variants (`md:hover:`, `data-[state=open]:`), negative values (`-mt-[8px]`), opacity (`/50`), the `!` modifier and type hints (`text-[length:…]`) are understood.
 - **Allowed:** values that use tokens, such as `p-[var(--space-3)]`.
-- **Not judged:** theme classes such as `p-4` or `text-red-500`. Whether they match the design system depends on the project's Tailwind config, which Design Warden does not read.
+- **Default-palette color classes** (`bg-red-500`, `hover:text-white`, `border-t-slate-200/50`, `ring-offset-blue-600`) are read as the theme variable Tailwind v4 compiles them to, `var(--color-red-500)`, and `token-usage` judges that reference like any other: "Class `bg-red-500` uses `--color-red-500`, which is not a defined design token". If the token sources define the palette as internal tokens, the finding names the semantic class with the same value ("Use `hover:text-danger` (var(--color-danger))"). A project that uses the default palette on purpose lists Tailwind's theme file (`node_modules/tailwindcss/theme.css`, whose `@theme` block is read) as a token source with an allowed `--color-` prefix.
+- **Not judged:** other theme classes such as `p-4`, `text-sm` or `bg-primary`. Sizes and keywords are not colors, and a project's own color names are its tokens. Whether a spacing class matches the design system depends on the project's Tailwind config, which Design Warden does not read.
 - **Not read:** class strings built at runtime, helpers called as members (`utils.cn(…)`), the v3.3 `[--var]` shorthand (`bg-[--x]`; the v4 `(--x)` form is read), `cva()` variant definitions, `@apply` in CSS, and the `!` modifier as `!important`.
 
 ### CSS-in-JS templates
@@ -75,7 +76,7 @@ Every literal branch of a conditional or fallback (`?:`, `??`, `||`, `&&`) is ch
   - Otherwise, the closest token named for the property's role (`text` for `color`, `bg` for `background`, `border` for borders).
   - No suggestion when nothing is close, for translucent colors (no opaque token equals them), or when the declaration redefines that token.
 - **Options:** `allow` (default `transparent`, `currentcolor`, `inherit`, `initial`, `unset`, `none`); `tokenPrefix` (default `--color-`).
-- **Not detected:** Tailwind theme classes (`text-red-500`). CSS-in-JS templates, SCSS and Tailwind arbitrary values are read (see above).
+- **Not detected here:** Tailwind default-palette classes (`text-red-500`) are token references, judged by `token-usage` (see above). CSS-in-JS templates and object styles, SCSS and Tailwind arbitrary values are read.
 
 ### `spacing-scale`
 
@@ -100,6 +101,7 @@ Every `var(--x)` must be a token defined in the token sources with an allowed pr
 
 - Primitive tokens (for example `--palette-*`) are reported with the semantic tokens that resolve to the same value.
 - Unknown tokens get a "did you mean" suggestion (edit distance ≤ 3).
+- A Tailwind default-palette class is reported as the token it references, naming the class. A suggestion names the replacement class too, keeping its variants and opacity (`hover:text-danger/80`).
 - Deprecated tokens (DTCG `$deprecated`, see [policy-authoring.md](policy-authoring.md#token-sources)) are reported with their reason. Suggestions in every check skip deprecated tokens.
 
 ### `no-important`

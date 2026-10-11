@@ -142,7 +142,7 @@ pnpm build            # emit dist/ for the npm packages (the repository itself r
 pnpm test:pack        # build, pack, install the tarballs into a fresh project and run design-warden (network)
 ```
 
-Benchmark baseline (151 labelled findings, including known traps and known limitations): **99.3% precision, 99.3% recall**. The misses are documented: the `font` shorthand is not parsed; name-based duplicate detection has false positives. The live-model evaluation has **not** been run in this environment. Methodology and caveats: [docs/evaluation.md](docs/evaluation.md).
+Benchmark baseline (156 labelled findings, including known traps and known limitations): **99.4% precision, 99.4% recall**. The misses are documented: the `font` shorthand is not parsed; name-based duplicate detection has false positives. The live-model evaluation has **not** been run in this environment. Methodology and caveats: [docs/evaluation.md](docs/evaluation.md).
 
 ## CI
 
@@ -178,7 +178,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 
 | Implemented | Not yet |
 |---|---|
-| Plain CSS + React checks (9) for TSX and JS/JSX, Tailwind arbitrary values, CSS-in-JS templates and object styles (MUI `sx` included), SCSS, Vue and Svelte components, CSS and DTCG token sources, policy schema and validation, exceptions, executable rule examples | Tailwind theme classes, globally registered Vue components |
+| Plain CSS + React checks (9) for TSX and JS/JSX, Tailwind arbitrary values and palette color classes, CSS-in-JS templates and object styles (MUI `sx` included), SCSS, Vue and Svelte components, CSS and DTCG token sources, policy schema and validation, exceptions, executable rule examples | Globally registered Vue components |
 | Git change sets, directory comparison without git history (`--base-dir`), changed-line scoping, policy from base ref | Rename detection for directory comparison |
 | Playwright capture, pixel diff, region localization (same-machine base/head or a committed baseline), axe-core accessibility checks (review only) | Mapping regions to source files |
 | Provenance (composition and tree shape) | Embeddings |

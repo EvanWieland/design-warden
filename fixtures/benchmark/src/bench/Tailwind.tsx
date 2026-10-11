@@ -1,4 +1,4 @@
-// Benchmark: Tailwind arbitrary values in class names. Each "@expect <rule>" marker labels a finding expected on its line.
+// Benchmark: Tailwind arbitrary values and default-palette color classes in class names. Each "@expect <rule>" marker labels a finding expected on its line.
 declare function cn(...classes: unknown[]): string;
 declare function classNames(...classes: unknown[]): string;
 
@@ -8,9 +8,9 @@ const late = 'text-[#b91c1c]'; // @expect color/semantic-tokens (a constant used
 export function TailwindCases({ active, size }: { active: boolean; size: string }) {
   return (
     <section className="flex flex-col gap-[var(--space-4)] p-(--space-5)">
-      {/* Tricky negatives: tokens, the v4 shorthand, type hints, theme classes, unchecked utilities, url(). */}
+      {/* Tricky negatives: tokens, the v4 shorthand, type hints, a spacing theme class, unchecked utilities, url(). */}
       <h2 className="text-[length:var(--font-size-lg)] text-[color:var(--color-text-primary)] font-semibold">{label}</h2>
-      <div className="w-[var(--size-sidebar)] min-h-[240px] grid-cols-[1fr_2fr] rounded-[var(--radius-md)] p-4 text-slate-700" />
+      <div className="w-[var(--size-sidebar)] min-h-[240px] grid-cols-[1fr_2fr] rounded-[var(--radius-md)] p-4 text-slate-700" /> {/* @expect tokens/semantic-only: a default-palette class is a token reference, and the demo has no --color-slate-700 */}
       <div className="bg-[url('/hero.png')] bg-[length:200px_100px]" />
       <div className={`text-${size} px-[var(--space-3)]`} />
 
@@ -24,6 +24,8 @@ export function TailwindCases({ active, size }: { active: boolean; size: string 
       <div className={cn('gap-y-[10px]', active && 'border-[rgb(220,38,38)]', { 'text-[#fff]': !active })} /> {/* @expect spacing/scale @expect color/semantic-tokens x2 */}
       <div className={active ? 'pt-[2px]' : 'pt-[var(--space-1)]'} /> {/* @expect spacing/scale */}
       <span className={classNames(late, 'px-[13px]')} /> {/* @expect spacing/scale */}
+      <p className="text-gray-500 hover:bg-blue-600/90 border-2 text-sm bg-transparent shadow-lg" /> {/* @expect tokens/semantic-only x2 */}
+      <p className={cn('text-white', active && 'ring-offset-indigo-500')} /> {/* @expect tokens/semantic-only x2 */}
     </section>
   );
 }

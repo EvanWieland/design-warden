@@ -14,6 +14,10 @@ const where = (sv: StyleValue) =>
 /** What cannot be read and why: CSS that does not parse, a Sass mixin, a computed property, or a style object built elsewhere. */
 const unreadable = (sv: StyleValue) => sv.lead ?? `Inline style object \`${sv.expression}\` is built elsewhere`;
 const skipTokenSources = (ctx: FileCheckContext<unknown>) => ctx.project.tokenFiles.has(ctx.file.path);
+const replaceLast = (s: string, find: string, by: string) => {
+  const i = s.lastIndexOf(find);
+  return i < 0 ? s : s.slice(0, i) + by + s.slice(i + find.length);
+};
 
 /** A literal found in a CSS value, and the token whose var() fallback it is, if any. */
 interface Literal {
@@ -203,12 +207,15 @@ export const tokenUsage = defineCheck({
         );
       }
       if (typeof sv.value !== 'string') continue;
+      // A palette class (`hover:bg-red-500`) references its token through the class: name the class, and suggest classes.
+      const subject = (name: string) => (sv.theme ? `Class \`${sv.className}\` uses \`${name}\`, which` : `\`${name}\``);
+      const ref = (token: string) => (sv.theme && token.startsWith('--color-') ? `\`${replaceLast(sv.className!, sv.theme, token.slice('--color-'.length))}\` (var(${token}))` : `var(${token})`);
       for (const name of varReferences(sv.value)) {
         const def = tokens.defs.get(name);
         if (!def && local.has(name)) continue;
         if (def && tokens.isAllowed(name)) {
           if (def.deprecated) {
-            out.push(fileFinding(ctx, 'token-usage', located(sv), { verdict: 'violation', message: `\`${name}\` is deprecated${def.deprecated === true ? '.' : `: ${def.deprecated}`}` }));
+            out.push(fileFinding(ctx, 'token-usage', located(sv), { verdict: 'violation', message: `${subject(name)} is deprecated${def.deprecated === true ? '.' : `: ${def.deprecated}`}` }));
           }
           continue;
         }
@@ -217,18 +224,23 @@ export const tokenUsage = defineCheck({
           out.push(
             fileFinding(ctx, 'token-usage', located(sv), {
               verdict: 'violation',
-              message: `\`${name}\` is not a defined design token.`,
-              suggestion: close && close[1] <= 3 ? `Did you mean var(${close[0]})?` : undefined,
+              message: `${subject(name)} is not a defined design token.`,
+              suggestion: close && close[1] <= 3 ? `Did you mean ${ref(close[0])}?` : undefined,
             }),
           );
         } else {
           const resolved = tokens.resolve(name);
           const same = allowedNames.filter((n) => resolved !== null && tokens.resolve(n) === resolved);
+          const use = same.slice(0, 3);
           out.push(
             fileFinding(ctx, 'token-usage', located(sv), {
               verdict: 'violation',
-              message: `\`${name}\` is an internal token; application code must use semantic tokens.`,
-              suggestion: same.length ? `Use ${same.slice(0, 3).map((n) => `var(${n})`).join(' or ')}, which resolve to the same value.` : undefined,
+              message: `${subject(name)} is an internal token; application code must use semantic tokens.`,
+              suggestion: !use.length
+                ? undefined
+                : sv.theme
+                  ? `Use ${use.map(ref).join(' or ')}, which ${use.length === 1 ? 'has' : 'have'} the same value.`
+                  : `Use ${use.map((n) => `var(${n})`).join(' or ')}, which resolve to the same value.`,
             }),
           );
         }

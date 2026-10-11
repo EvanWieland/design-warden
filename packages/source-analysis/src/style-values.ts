@@ -3,7 +3,7 @@ import postcss, { type Root } from 'postcss';
 import scss from 'postcss-scss';
 import valueParser from 'postcss-value-parser';
 import { lineOf, walk, type ParsedFile } from './parse.ts';
-import { arbitraryValue } from './tailwind.ts';
+import { arbitraryValue, themeColor } from './tailwind.ts';
 import { positions, type PositionOf } from './templates.ts';
 
 /** One place where a style value is set: a CSS declaration, a JSX style property, a color-like JSX prop or a Tailwind arbitrary value. */
@@ -19,6 +19,8 @@ export interface StyleValue {
   source: 'css' | 'css-in-js' | 'jsx-style' | 'jsx-prop' | 'jsx-class';
   /** For `jsx-class`: the class the value came from, such as `md:p-[13px]`. */
   className?: string;
+  /** For `jsx-class`: the default-palette color a theme class names (`red-500` in `hover:bg-red-500/50`); the value is `var(--color-red-500)`. */
+  theme?: string;
   /** True for custom-property definitions such as `--local-gap: 4px`. */
   definesCustomProperty: boolean;
   /** Styles that cannot be read at all: an object built elsewhere, CSS that does not parse, a Sass mixin. */
@@ -361,7 +363,7 @@ function classPieces(n: Node, strings: Map<string, Node>, seen: Set<Node>): Clas
   });
 }
 
-/** Tailwind arbitrary values (`p-[13px]`) in class strings, as style values located at their class. */
+/** Tailwind arbitrary values (`p-[13px]`) and default-palette color classes (`bg-red-500`) in class strings, as style values located at their class. */
 function classValues(n: Node, strings: Map<string, Node>, seen: Set<Node>): StyleValue[] {
   const out: StyleValue[] = [];
   for (const piece of classPieces(n, strings, seen)) {
@@ -370,9 +372,21 @@ function classValues(n: Node, strings: Map<string, Node>, seen: Set<Node>): Styl
     for (const m of piece.text.matchAll(/\S+/g)) {
       for (; scanned < m.index; scanned++) if (piece.text.charCodeAt(scanned) === 10) [line, lastBreak] = [line + 1, scanned];
       const v = arbitraryValue(m[0]);
-      if (!v) continue;
+      const t = v ? null : themeColor(m[0]);
+      const found = v ?? t;
+      if (!found) continue;
       const column = lastBreak < 0 ? piece.column + m.index : m.index - lastBreak;
-      out.push({ ...v, line, column, endLine: line, source: 'jsx-class', className: m[0], definesCustomProperty: v.property.startsWith('--') });
+      out.push({
+        property: found.property,
+        value: found.value,
+        line,
+        column,
+        endLine: line,
+        source: 'jsx-class',
+        className: m[0],
+        definesCustomProperty: found.property.startsWith('--'),
+        ...(t ? { theme: t.color } : {}),
+      });
     }
   }
   return out;

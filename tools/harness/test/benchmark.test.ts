@@ -10,7 +10,7 @@ describe('deterministic benchmark', () => {
       'false negative: typography/scale at src/bench/typography.css:18 (1)',
       'false positive: components/reuse-existing at src/bench/Duplicates.tsx:37 (1)',
     ]);
-    expect(r.overall).toMatchObject({ tp: 150, fp: 1, fn: 1 });
+    expect(r.overall).toMatchObject({ tp: 155, fp: 1, fn: 1 });
     expect(r.locationMisses).toBe(0);
   });
 });
