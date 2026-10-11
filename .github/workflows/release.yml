@@ -34,7 +34,7 @@ jobs:
           for name in @design-warden/core @design-warden/source-analysis @design-warden/visual-analysis @design-warden/semantic-review design-warden; do
             code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $id_token" "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}")
             echo "$name: HTTP $code"
-            if [ "$code" != 200 ]; then failed=1; echo "::error::npm does not trust this workflow for $name"; fi
+            case "$code" in 2??) ;; *) failed=1; echo "::error::npm does not trust this workflow for $name" ;; esac # 201: a token was issued
           done
           exit "$failed"
 
