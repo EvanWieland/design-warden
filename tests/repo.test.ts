@@ -65,6 +65,14 @@ describe('repository invariants', () => {
     expect(floating).toEqual([]);
   });
 
+  // In a container job, `${{ runner.temp }}` and `${{ github.workspace }}` are host paths that do not exist inside the
+  // container: upload-artifact then fell back to `/` and silently left the diff images out (PR #2, 2026-10-11).
+  it('passes only container paths to the actions of the visual (container) job', () => {
+    const visual = /^ {2}visual:\n([\s\S]*?)^ {2}\w+:$/m.exec(read('.github/workflows/design-warden.yml'))?.[1] ?? '';
+    expect(visual).toContain('container:');
+    expect(visual.match(/\$\{\{\s*(runner\.temp|github\.workspace)\s*\}\}/g)).toBeNull();
+  });
+
   // Baselines are compared only within one environment, so the container must not move under a tag.
   it('runs visual capture in the Playwright container of the pinned npm version, pinned by digest', () => {
     const { dependencies } = JSON.parse(read('packages/visual-analysis/package.json')) as { dependencies: Record<string, string> };
