@@ -137,9 +137,19 @@ export async function analyze(opts: AnalyzeOptions): Promise<Report> {
     record({ engine: 'visual', status: 'skipped', reason: 'no captures given (use --visual-base and --visual-head)' });
   } else {
     const v = opts.visual;
+    // A heuristic hint for each changed screen: the stylesheet rules that use its element's class, changed files first.
+    const styledBy = source.value?.styledBy;
+    const changedFiles = new Set(changes?.files.map((f) => f.path));
+    const styleHints = styledBy
+      ? (label: string) => {
+          const cls = /\.(-?[_a-zA-Z][\w-]*)/.exec(label)?.[1];
+          const rules = cls ? styledBy(cls).map((r) => ({ ...r, changed: changedFiles.has(r.file) })) : [];
+          return [...rules.filter((r) => r.changed), ...rules.filter((r) => !r.changed)];
+        }
+      : undefined;
     const r = await timed('visual', async () => {
       const result = visualRule
-        ? await compareCaptures({ ...v, ruleId: visualRule.id, options: loaded.checkOptions.get(visualRule.id) as VisualDiffOptions })
+        ? await compareCaptures({ ...v, ruleId: visualRule.id, options: loaded.checkOptions.get(visualRule.id) as VisualDiffOptions, styleHints })
         : { drafts: [], diffs: [] };
       if (a11yRule) {
         const { base, head } = readCapturePair(v.baseDir, v.headDir);

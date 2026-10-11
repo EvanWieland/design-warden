@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Visual changes name their likely source. Each changed screen's finding lists up to three stylesheet rules whose selectors use the class of the largest change's element, changed files first, as code evidence. It is labelled a heuristic. The CLI passes `compareCaptures` a lookup from the source engine (`styledBy`), so the visual engine still does not depend on source analysis.
 - Rename detection for `--base-dir`. A deleted and an added file with identical content, or with at least 50% of their lines in common and the same extension, pair as a rename, so moved code keeps its findings pre-existing and provenance reads the old version.
 - Globally registered Vue components. `app.component('AcmeBadge', Badge)`, `Vue.component(…)` and chained `createApp(App).component(…)` registrations of imported components are read project-wide. Template tags without a local import resolve against them, in both spellings, so prop contracts and provenance apply. A local import wins, as in Vue.
 - Tailwind default-palette color classes (`bg-red-500`, `hover:text-white`, `border-t-slate-200/50`) are read as the theme variable Tailwind v4 compiles them to (`var(--color-red-500)`) and judged by `token-usage`, which names the class. Its suggestions name the semantic class with the same value. Sizes and keywords (`text-sm`, `border-2`) and a project's own color names are not judged. A project that uses the default palette on purpose lists Tailwind's `theme.css` as a token source.

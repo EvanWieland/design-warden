@@ -76,6 +76,38 @@ describe('compareCaptures', () => {
     expect(changed!.message).toContain('Largest change near `section.ds-card`');
   });
 
+  it('names the stylesheet rules the caller finds for the largest change, as a heuristic, changed files marked', async () => {
+    const block = { x: 50, y: 30, size: 40 };
+    const asked: string[] = [];
+    const styleHints = (label: string) => {
+      asked.push(label);
+      return [
+        { file: 'src/ds/Card.css', line: 3, selector: '.ds-card', changed: false },
+        { file: 'src/ds/Accent.css', line: 9, selector: '.ds-card--accent', changed: true },
+        { file: 'src/a.css', line: 1, selector: '.ds-card', changed: false },
+        { file: 'src/b.css', line: 1, selector: '.ds-card', changed: false },
+      ];
+    };
+    const { drafts } = await compareCaptures({
+      baseDir: captureDir('a', white, { ...block, color: blue600 }),
+      headDir: captureDir('b', white, { ...block, color: blue700 }),
+      artifactDir: fs.mkdtempSync(path.join(os.tmpdir(), 'dw-art-')),
+      ruleId: 'visual/changes',
+      options: OPTS,
+      styleHints,
+    });
+    const changed = drafts.find((x) => x.message.startsWith('Rendered output of home/default changed'))!;
+    expect(asked).toEqual(['section.ds-card']);
+    expect(changed.message).toContain(
+      'Likely styled by (heuristic): src/ds/Card.css:3 `.ds-card`; src/ds/Accent.css:9 `.ds-card--accent` (changed); src/a.css:1 `.ds-card`.',
+    );
+    expect(changed.evidence?.filter((e) => e.kind === 'code')).toEqual([
+      { kind: 'code', file: 'src/ds/Card.css', line: 3, snippet: '.ds-card' },
+      { kind: 'code', file: 'src/ds/Accent.css', line: 9, snippet: '.ds-card--accent' },
+      { kind: 'code', file: 'src/a.css', line: 1, snippet: '.ds-card' },
+    ]);
+  });
+
   it('reports a page that grew as size-changed', async () => {
     const { diffs } = await compare(captureDir('a', white), captureDir('b', white, undefined, { height: 160 }));
     expect(diffs.find((d) => d.state === 'default')?.status).toBe('size-changed');

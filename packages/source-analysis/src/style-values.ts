@@ -124,6 +124,33 @@ export function styleValues(file: ParsedFile): StyleValue[] {
   return out;
 }
 
+/** A stylesheet rule, for naming where an element's styles come from. */
+export interface StyleRule {
+  file: string;
+  line: number;
+  selector: string;
+}
+
+/** The rules of every stylesheet and component style block, by each class their selector uses, sorted by file and line. */
+export function indexClasses(files: Iterable<ParsedFile>): Map<string, StyleRule[]> {
+  const index = new Map<string, StyleRule[]>();
+  const add = (file: ParsedFile, root: Root, origin: number) => {
+    const pos = offsetPosition(file);
+    root.walkRules((r) => {
+      const rule = { file: file.path, line: pos(origin + (r.source?.start?.offset ?? 0)).line, selector: brief(r.selector) };
+      for (const cls of new Set(Array.from(r.selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g), (m) => m[1]!))) {
+        (index.get(cls) ?? index.set(cls, []).get(cls)!).push(rule);
+      }
+    });
+  };
+  for (const f of files) {
+    if (f.css) add(f, f.css, 0);
+    for (const s of f.template?.styles ?? []) add(f, s.root, s.origin);
+  }
+  for (const rules of index.values()) rules.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
+  return index;
+}
+
 /** Where a parsed stylesheet sits in the file, and which parts of it stood for `${…}`. */
 interface CssContext {
   file: ParsedFile;

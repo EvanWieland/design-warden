@@ -43,6 +43,17 @@ export interface CompareInput {
   artifactDir: string;
   ruleId: string;
   options: VisualDiffOptions;
+  /** Stylesheet rules that likely style an element (`a.ds-link`), most relevant first; the caller knows the source. */
+  styleHints?: (label: string) => StyleHint[];
+}
+
+/** A stylesheet rule named as a likely source of a visual change: a heuristic, by the element's class. */
+export interface StyleHint {
+  file: string;
+  line: number;
+  selector: string;
+  /** The file is part of the change. */
+  changed: boolean;
 }
 
 /** Both manifests, refusing captures from different environments: their pixels and rendered styles differ. */
@@ -73,7 +84,7 @@ export async function compareCaptures(input: CompareInput): Promise<{ drafts: Fi
   for (const b of base.captures) {
     if (!head.captures.some((h) => h.id === b.id)) diffs.push(summary(b, 'removed', { changedPixels: 0, changedRatio: 0, regions: [] }));
   }
-  return { drafts: toDrafts(diffs, input.ruleId), diffs };
+  return { drafts: toDrafts(diffs, input.ruleId, input.styleHints), diffs };
 }
 
 function summary(c: CaptureEntry, status: VisualDiffSummary['status'], d: Pick<VisualDiffSummary, 'changedPixels' | 'changedRatio' | 'regions'>, extra: Partial<VisualDiffSummary> = {}): VisualDiffSummary {
@@ -150,7 +161,7 @@ function nearestElement(c: CaptureEntry, r: Box): string | undefined {
   return best?.label;
 }
 
-function toDrafts(diffs: VisualDiffSummary[], ruleId: string): FindingDraft[] {
+function toDrafts(diffs: VisualDiffSummary[], ruleId: string, styleHints?: CompareInput['styleHints']): FindingDraft[] {
   const groups = new Map<string, VisualDiffSummary[]>();
   for (const d of diffs) {
     if (d.status === 'unchanged') continue;
@@ -175,13 +186,17 @@ function toDrafts(diffs: VisualDiffSummary[], ruleId: string): FindingDraft[] {
     }
     if (changed.length) {
       const where = changed[0]!.regions[0]?.label;
+      const hints = where && styleHints ? styleHints(where).slice(0, 3) : [];
       drafts.push({
         ...base,
+        evidence: [...evidence, ...hints.map((h) => ({ kind: 'code' as const, file: h.file, line: h.line, snippet: h.selector }))],
         verdict: 'insufficient-evidence',
         confidence: 'high',
         message:
           `Rendered output of ${key} changed (${changed.map((d) => `${d.viewport}: ${d.regions.length} region(s), ${(d.changedRatio * 100).toFixed(2)}% of pixels`).join('; ')}).` +
-          `${where ? ` Largest change near \`${where}\`.` : ''} A difference is not a violation; confirm it is intended.`,
+          `${where ? ` Largest change near \`${where}\`.` : ''}` +
+          `${hints.length ? ` Likely styled by (heuristic): ${hints.map((h) => `${h.file}:${h.line} \`${h.selector}\`${h.changed ? ' (changed)' : ''}`).join('; ')}.` : ''}` +
+          ' A difference is not a violation; confirm it is intended.',
       });
     }
     const added = ds.filter((d) => d.status === 'added' || d.status === 'removed');

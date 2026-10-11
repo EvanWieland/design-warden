@@ -19,6 +19,7 @@ import { styleChecks } from './checks/style.ts';
 import { componentDefinitions, globalComponents, importsOf, jsxUsages, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
 import { fileKind, parseFile, type ParsedFile } from './parse.ts';
 import { computeProvenance, type ProvenanceOptions } from './provenance.ts';
+import { indexClasses, type StyleRule } from './style-values.ts';
 import { createTokenSet, readTokenDefs } from './tokens.ts';
 
 const MAX_FILE_CHARS = 2_000_000;
@@ -40,7 +41,11 @@ export interface SourceAnalysisResult {
   drafts: FindingDraft[];
   provenance: ProvenanceRecord[];
   filesAnalyzed: number;
+  /** The stylesheet rules whose selectors use a class (stylesheets and component style blocks), for naming the source of a visual change. */
+  styledBy(className: string): StyleRule[];
 }
+
+export type { StyleRule };
 
 export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceAnalysisResult> {
   const { loaded, changes } = input;
@@ -135,7 +140,9 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
   }
 
   drafts.push(...applyInlineDirectives(drafts, [...files.values()].filter((f) => isTarget(f.path)), loaded));
-  return { drafts, provenance: project.provenance, filesAnalyzed: files.size };
+  let classes: Map<string, StyleRule[]> | undefined; // built on first use: only visual changes need it
+  const styledBy = (className: string) => (classes ??= indexClasses(files.values())).get(className) ?? [];
+  return { drafts, provenance: project.provenance, filesAnalyzed: files.size, styledBy };
 }
 
 /**

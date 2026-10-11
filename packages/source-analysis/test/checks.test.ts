@@ -447,6 +447,22 @@ describe('Vue single-file components', () => {
   });
 });
 
+describe('stylesheet rules by class (hints for visual changes)', () => {
+  it('finds the rules that use a class in stylesheets and component style blocks, at their lines', async () => {
+    const { loaded } = makeProject({
+      'src/app/card.css': '.x { color: var(--color-text); }\n\n.card, .card:hover > .icon {\n  padding: var(--space-2);\n}\n',
+      'src/app/C.vue': '<template>\n  <div class="card" />\n</template>\n<style>\n.card { margin: 0; }\n</style>\n',
+    });
+    const r = await analyzeSource({ loaded });
+    expect(r.styledBy('card')).toEqual([
+      { file: 'src/app/C.vue', line: 5, selector: '.card' },
+      { file: 'src/app/card.css', line: 3, selector: '.card, .card:hover > .icon' },
+    ]);
+    expect(r.styledBy('icon')).toEqual([{ file: 'src/app/card.css', line: 3, selector: '.card, .card:hover > .icon' }]);
+    expect(r.styledBy('nope')).toEqual([]);
+  });
+});
+
 describe('globally registered Vue components', () => {
   const MAIN = [
     "import { createApp } from 'vue';",

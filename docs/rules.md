@@ -181,6 +181,7 @@ Compares base and head capture directories (`--visual-base` / `--visual-head`, p
 - pixelmatch 8 at threshold 0.02: the default 0.1 misses adjacent token shades.
 - Changed pixels are clustered on an 8 px grid into regions (≥4 px per cell, ≥24 px per region). Each region is labelled with the smallest captured element containing it.
 - One finding per route/state with changes: verdict `insufficient-evidence` ("changed; confirm it is intended"), with before/after/diff images. A difference is never reported as a violation.
+- **Likely source (heuristic):** the finding names up to three stylesheet rules whose selectors use the class of the largest change's element ("Largest change near `a.ds-link`. Likely styled by (heuristic): src/design-system/components/Link.css:1 `.ds-link`"). Rules in changed files come first and are marked `(changed)`, and each rule is added as code evidence. Stylesheets and Vue and Svelte `<style>` blocks are indexed; only the element's first class is known, and a change that comes from a token (as in the token-change scenario) names where the element is styled, not the token.
 - States that failed to capture produce `insufficient-evidence`; added or removed states produce `notice`.
 - **Options:** `threshold`, `cellSize`, `minCellPixels`, `minRegionPixels`.
 

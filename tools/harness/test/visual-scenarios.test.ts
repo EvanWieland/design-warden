@@ -9,6 +9,8 @@ describe('visual analysis on the demo (real builds, real browser)', () => {
     expect(changed.length).toBeGreaterThanOrEqual(8);
     expect(changed.every((d) => d.regions.length > 0 && d.images.diff)).toBe(true);
     expect(run.report.findings.filter((f) => f.engine === 'visual').every((f) => f.outcome === 'review')).toBe(true);
+    // Each changed screen names the stylesheet rules of its largest change's element (a heuristic hint).
+    expect(run.report.findings.filter((f) => f.engine === 'visual').some((f) => /Likely styled by \(heuristic\): src\/design-system\/\S+\.css:\d+ /.test(f.message))).toBe(true);
     expect(run.report.outcome).toBe('review');
     // The dependency junction used for builds is not part of the change.
     expect(run.report.target.changedFiles).toEqual(['src/design-system/tokens.css']);
