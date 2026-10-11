@@ -179,7 +179,7 @@ In the agent-evasion scenario, the recorded model response cites a quote that is
 | Implemented | Not yet |
 |---|---|
 | Plain CSS + React checks (9) for TSX and JS/JSX, Tailwind arbitrary values and palette color classes, CSS-in-JS templates and object styles (MUI `sx` included), SCSS, Vue (globally registered components included) and Svelte components, CSS and DTCG token sources, policy schema and validation, exceptions, executable rule examples | Vue components registered by a plugin (`app.use`) |
-| Git change sets, directory comparison without git history (`--base-dir`), changed-line scoping, policy from base ref | Rename detection for directory comparison |
+| Git change sets, directory comparison without git history (`--base-dir`, renames detected), changed-line scoping, policy from base ref | Copy detection (a copied file counts as new) |
 | Playwright capture, pixel diff, region localization (same-machine base/head or a committed baseline), axe-core accessibility checks (review only) | Mapping regions to source files |
 | Provenance (composition and tree shape) | Embeddings |
 | AI review: Anthropic SDK, OpenAI-compatible (incl. Ollama), replay; verification | Live-model evaluation results; other providers |

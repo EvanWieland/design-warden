@@ -55,7 +55,7 @@ pnpm design-warden check --policy ../your-app/design-warden.policy.json --base o
 node ../design-warden/packages/cli/src/bin.ts check --policy design-warden.policy.json --base origin/main
 ```
 
-Without git history (an archive, a CI system that copies files), compare with an older copy of the project instead: `--base-dir path/to/previous-copy`. The policy then comes from the project itself, the head copy: there is no `--policy-ref` for directories, so a change to the policy is reported (`policy/changed`, even if `project.exclude` lists the policy file) but also takes effect. Where a change must not weaken its own rules, use git and `--policy-ref`.
+Without git history (an archive, a CI system that copies files), compare with an older copy of the project instead: `--base-dir path/to/previous-copy`. Renamed files are detected as git would: a deleted and an added file with identical content, or with at least 50% of their lines in common and the same extension, are a rename, so moved code keeps its findings pre-existing and only edited lines count as changed. The policy then comes from the project itself, the head copy: there is no `--policy-ref` for directories, so a change to the policy is reported (`policy/changed`, even if `project.exclude` lists the policy file) but also takes effect. Where a change must not weaken its own rules, use git and `--policy-ref`.
 
 Exit codes: `0` pass or review requested, `1` blocking finding (or review with `--fail-on review`), `2` usage, policy or setup error (for example Chromium missing), `3` an engine failed closed.
 

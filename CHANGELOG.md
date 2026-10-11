@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Rename detection for `--base-dir`. A deleted and an added file with identical content, or with at least 50% of their lines in common and the same extension, pair as a rename, so moved code keeps its findings pre-existing and provenance reads the old version.
 - Globally registered Vue components. `app.component('AcmeBadge', Badge)`, `Vue.component(…)` and chained `createApp(App).component(…)` registrations of imported components are read project-wide. Template tags without a local import resolve against them, in both spellings, so prop contracts and provenance apply. A local import wins, as in Vue.
 - Tailwind default-palette color classes (`bg-red-500`, `hover:text-white`, `border-t-slate-200/50`) are read as the theme variable Tailwind v4 compiles them to (`var(--color-red-500)`) and judged by `token-usage`, which names the class. Its suggestions name the semantic class with the same value. Sizes and keywords (`text-sm`, `border-2`) and a project's own color names are not judged. A project that uses the default palette on purpose lists Tailwind's `theme.css` as a token source.
 - CSS-in-JS object styles. `css({…})`, `styled.div({…})`, `styled(Button)((p) => ({…}))`, `keyframes({…})` and Emotion's `css` prop are read like inline style objects, nested selectors and media queries included. MUI's `sx` prop is read too, reporting only literal raw CSS: numbers, theme paths and computed values are theme lookups.
@@ -29,6 +30,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- A pure git rename (similarity 100%) changes no lines, so a moved file's findings stay pre-existing. It used to count as changed everywhere, because it has no hunks.
 - Renamed from Design Guard to Design Warden, because the `design-guard` npm package and the `@design-guard` npm scope belong to another project. Everything that carried the name changed with it: the CLI (`design-warden`), the packages (`@design-warden/*`), the policy file (`design-warden.policy.json`), the output directory (`.design-warden/`), the inline directive (`design-warden-ignore-next-line`), the provider variables (`DESIGN_WARDEN_OPENAI_*`), the report's `tool.name` and the SARIF fingerprint key (`designWarden/v1`). Nothing was published under the old name, so the old names are not accepted as aliases.
 - The workflows pin every action to a full commit SHA (checkout v7.0.1, setup-node v7.1.0, upload-artifact v7.0.2), checked by a test.
 - `spacing-scale` messages name the configured scale (for example "is not on the `--space-*` scale") instead of always saying "spacing".

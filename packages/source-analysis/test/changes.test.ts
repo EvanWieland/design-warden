@@ -2,7 +2,7 @@ import { finalizeFindings, gitChangeSet, readFileAtCommit } from '@design-warden
 import { afterAll, describe, expect, it } from 'vitest';
 import { analyzeSource } from '../src/index.ts';
 import { treeEditDistance, treeSimilarity, type Tree } from '../src/jsx.ts';
-import { cleanup, commitAll, makeProject, TEST_POLICY, TOKENS, writeFiles } from './helpers.ts';
+import { cleanup, commitAll, git, makeProject, TEST_POLICY, TOKENS, writeFiles } from './helpers.ts';
 
 afterAll(cleanup);
 
@@ -29,6 +29,17 @@ async function scenario(changes: Record<string, string>) {
   const result = await analyzeSource({ loaded, changes: changeSet, scope: 'changed-lines', readBase });
   return { ...result, changeSet, loaded };
 }
+
+describe('renames', () => {
+  // Moving a file introduces nothing: its findings must stay pre-existing, not block as if every line were new.
+  it('treats a pure git rename as changing no lines', async () => {
+    const { root } = makeProject({ 'src/app/legacy.css': '.old {\n  color: #123456;\n}\n' });
+    commitAll(root);
+    git(root, 'mv', 'src/app/legacy.css', 'src/app/moved.css');
+    const changeSet = await gitChangeSet(root, 'main');
+    expect(changeSet.files).toEqual([{ path: 'src/app/moved.css', status: 'renamed', previousPath: 'src/app/legacy.css', similarity: 100, changedLines: [] }]);
+  });
+});
 
 describe('pattern provenance', () => {
   it('classifies new components against reference patterns and existing components', async () => {

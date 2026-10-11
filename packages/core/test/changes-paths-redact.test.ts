@@ -64,7 +64,7 @@ describe('parseNameStatus and awkward file names', () => {
     const out = ['M', 'src/a b.css', 'R087', 'src/old.tsx', 'src/new.tsx', 'C100', 'src/x.css', 'src/y.css', 'D', 'src/gone.tsx', 'A', 'src/"q".css', ''].join('\0');
     expect(parseNameStatus(out)).toEqual([
       { path: 'src/a b.css', status: 'modified' },
-      { path: 'src/new.tsx', status: 'renamed', previousPath: 'src/old.tsx' },
+      { path: 'src/new.tsx', status: 'renamed', previousPath: 'src/old.tsx', similarity: 87 },
       { path: 'src/y.css', status: 'added' },
       { path: 'src/gone.tsx', status: 'deleted' },
       { path: 'src/"q".css', status: 'added' },
@@ -96,6 +96,19 @@ describe('dirChangeSet', () => {
       { path: 'src/mod.css', status: 'modified', changedLines: [{ start: 2, end: 2 }] },
       { path: 'src/new file.css', status: 'added', changedLines: [{ start: 1, end: Number.MAX_SAFE_INTEGER }] },
       { path: 'src/gone.css', status: 'deleted', changedLines: [] },
+    ]);
+  });
+
+  it('pairs a deleted and an added file as a rename: identical content changes no lines, similar content keeps its line ranges', async () => {
+    const text = (n: number, edit?: number) => `${Array.from({ length: n }, (_, i) => (i === edit ? 'changed' : `line ${i + 1}`)).join('\n')}\n`;
+    const base = tree({ 'src/old.css': text(10), 'src/before.tsx': text(8), 'src/unrelated.css': 'a {}\nb {}\n' });
+    const head = tree({ 'src/new.css': text(10), 'src/after.tsx': text(8, 2), 'src/other.css': 'x {}\ny {}\nz {}\n' });
+    const cs = await dirChangeSet(head, base, ['src/**'], []);
+    expect(cs.files).toEqual([
+      { path: 'src/after.tsx', status: 'renamed', previousPath: 'src/before.tsx', similarity: 88, changedLines: [{ start: 3, end: 3 }] },
+      { path: 'src/new.css', status: 'renamed', previousPath: 'src/old.css', similarity: 100, changedLines: [] },
+      { path: 'src/other.css', status: 'added', changedLines: [{ start: 1, end: Number.MAX_SAFE_INTEGER }] },
+      { path: 'src/unrelated.css', status: 'deleted', changedLines: [] },
     ]);
   });
 

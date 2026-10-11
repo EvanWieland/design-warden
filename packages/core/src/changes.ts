@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -20,6 +21,8 @@ export interface FileChange {
   path: string; // POSIX, relative to the project root
   status: 'added' | 'modified' | 'deleted' | 'renamed';
   previousPath?: string;
+  /** Renames: how similar the two versions are, 0–100 as git reports it (100: identical content). */
+  similarity?: number;
   /** Added or rewritten lines, plus the lines bordering pure deletions. */
   changedLines: LineRange[];
 }
@@ -70,8 +73,9 @@ export async function gitChangeSet(projectRoot: string, baseRef: string): Promis
   const hunks = new Map(parseUnifiedDiff(await git(projectRoot, [...PATCH_OPTIONS, '--relative', '-M', mergeBase])).map((f) => [f.path, f.changedLines]));
   const files: FileChange[] = names.map((n) => ({
     ...n,
-    // Fail closed: if the line ranges of a changed file cannot be read, treat the whole file as changed.
-    changedLines: hunks.get(n.path)?.length ? hunks.get(n.path)! : WHOLE_FILE,
+    // A pure rename changes no lines: its findings stay pre-existing. Otherwise fail closed: if the line
+    // ranges of a changed file cannot be read, treat the whole file as changed.
+    changedLines: n.status === 'renamed' && n.similarity === 100 ? [] : hunks.get(n.path)?.length ? hunks.get(n.path)! : WHOLE_FILE,
   }));
   const untracked = await git(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
   for (const p of untracked.split('\0').filter(Boolean)) files.push({ path: p, status: 'added', changedLines: WHOLE_FILE });
@@ -85,11 +89,70 @@ const WHOLE_FILE: LineRange[] = [{ start: 1, end: Number.MAX_SAFE_INTEGER }];
 // not change the format.
 const PATCH_OPTIONS = ['diff', '--text', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', '-U0'];
 
+/** git's default rename threshold (`-M50%`). */
+const RENAME_SIMILARITY = 50;
+// ponytail: unmatched added and deleted files are compared pairwise (same extension only); above this many
+// comparisons only identical files pair as renames. Upgrade: bucket candidates by content fingerprints.
+const MAX_RENAME_COMPARISONS = 25_000;
+
+/** Lines two texts share, as multisets, 0–100: an approximation of git's similarity index. */
+function similarity(a: string, b: string): number {
+  const lines = (s: string) => (s.endsWith('\n') ? s.slice(0, -1) : s).split('\n');
+  const [la, lb] = [lines(a), lines(b)];
+  const left = new Map<string, number>();
+  for (const l of la) left.set(l, (left.get(l) ?? 0) + 1);
+  let common = 0;
+  for (const l of lb) {
+    const n = left.get(l) ?? 0;
+    if (n > 0) {
+      common++;
+      left.set(l, n - 1);
+    }
+  }
+  return Math.round((200 * common) / (la.length + lb.length));
+}
+
+/** Pairs added files with deleted ones: identical content first, then the most similar file with the same extension, at least 50%. */
+function findRenames(projectRoot: string, baseDir: string, added: string[], deleted: string[]): Map<string, { from: string; similarity: number }> {
+  const out = new Map<string, { from: string; similarity: number }>();
+  if (!added.length || !deleted.length) return out;
+  const cache = new Map<string, Buffer>();
+  const bytes = (file: string) => cache.get(file) ?? (cache.set(file, fs.readFileSync(file)), cache.get(file)!);
+  const [head, base] = [(p: string) => bytes(path.join(projectRoot, p)), (p: string) => bytes(path.join(baseDir, p))];
+  const free = new Set(deleted);
+  const byHash = new Map(deleted.map((d) => [createHash('sha256').update(base(d)).digest('hex'), d]));
+  for (const a of added) {
+    const d = byHash.get(createHash('sha256').update(head(a)).digest('hex'));
+    if (d && free.has(d)) {
+      out.set(a, { from: d, similarity: 100 });
+      free.delete(d);
+    }
+  }
+  const rest = added.filter((a) => !out.has(a));
+  if (rest.length * free.size > MAX_RENAME_COMPARISONS) return out;
+  const candidates: [number, string, string][] = [];
+  for (const a of rest) {
+    for (const d of free) {
+      if (path.extname(a) !== path.extname(d)) continue;
+      const s = similarity(head(a).toString('utf8'), base(d).toString('utf8'));
+      if (s >= RENAME_SIMILARITY) candidates.push([s, a, d]);
+    }
+  }
+  candidates.sort((x, y) => y[0] - x[0]);
+  for (const [s, a, d] of candidates) {
+    if (out.has(a) || !free.has(d)) continue;
+    out.set(a, { from: d, similarity: s });
+    free.delete(d);
+  }
+  return out;
+}
+
 /**
  * Changes from `baseDir`, an older copy of the project, to `projectRoot`, without git history.
  * Both trees are listed with the same globs (`git diff --no-index` would include node_modules and
  * ignore .gitignore); files whose bytes differ are diffed with `git diff --no-index`, which works
- * outside a repository. Renames show as a deletion plus an addition. `base.sha` is empty.
+ * outside a repository. A deleted and an added file that are identical or similar pair as a rename,
+ * as git would report it. `base.sha` is empty.
  */
 export async function dirChangeSet(projectRoot: string, baseDir: string, include: readonly string[], exclude: readonly string[], always: readonly string[] = []): Promise<ChangeSet> {
   if (!fs.existsSync(baseDir) || !fs.statSync(baseDir).isDirectory()) throw new ChangeSetError(`base directory "${baseDir}" does not exist`);
@@ -104,21 +167,29 @@ export async function dirChangeSet(projectRoot: string, baseDir: string, include
   };
   const head = files(projectRoot);
   const base = new Set(files(baseDir));
+  const current = new Set(head);
+  const renames = findRenames(projectRoot, baseDir, head.filter((p) => !base.has(p)), [...base].filter((p) => !current.has(p)));
+  const renamedFrom = new Set([...renames.values()].map((r) => r.from));
   const changes: FileChange[] = [];
   for (const p of head) {
-    if (!base.has(p)) {
+    const rename = renames.get(p);
+    if (!base.has(p) && !rename) {
       changes.push({ path: p, status: 'added', changedLines: WHOLE_FILE });
       continue;
     }
-    if (fs.readFileSync(path.join(baseDir, p)).equals(fs.readFileSync(path.join(projectRoot, p)))) continue;
+    const from = rename?.from ?? p;
+    const renamed = rename ? ({ status: 'renamed', previousPath: from, similarity: rename.similarity } as const) : ({ status: 'modified' } as const);
+    if (fs.readFileSync(path.join(baseDir, from)).equals(fs.readFileSync(path.join(projectRoot, p)))) {
+      if (rename) changes.push({ path: p, ...renamed, changedLines: [] }); // a pure rename changes no lines
+      continue;
+    }
     // Exit code 1 means "the files differ". Same fail-closed rule as gitChangeSet: no hunks, whole file.
     // `./`: a file named `-` would otherwise make git read stdin.
-    const diff = await git(projectRoot, [...PATCH_OPTIONS, '--no-index', '--', path.resolve(baseDir, p), `./${p}`], [0, 1]);
+    const diff = await git(projectRoot, [...PATCH_OPTIONS, '--no-index', '--', path.resolve(baseDir, from), `./${p}`], [0, 1]);
     const changedLines = parseUnifiedDiff(diff)[0]?.changedLines;
-    changes.push({ path: p, status: 'modified', changedLines: changedLines?.length ? changedLines : WHOLE_FILE });
+    changes.push({ path: p, ...renamed, changedLines: changedLines?.length ? changedLines : WHOLE_FILE });
   }
-  const current = new Set(head);
-  for (const p of base) if (!current.has(p)) changes.push({ path: p, status: 'deleted', changedLines: [] });
+  for (const p of base) if (!current.has(p) && !renamedFrom.has(p)) changes.push({ path: p, status: 'deleted', changedLines: [] });
   return { base: { ref: baseDir, sha: '' }, files: changes };
 }
 
@@ -130,7 +201,7 @@ export function parseNameStatus(out: string): Omit<FileChange, 'changedLines'>[]
     const code = parts[i++]!;
     if (code.startsWith('R') || code.startsWith('C')) {
       const [from, to] = [parts[i++]!, parts[i++]!];
-      files.push(code.startsWith('R') ? { path: to, status: 'renamed', previousPath: from } : { path: to, status: 'added' });
+      files.push(code.startsWith('R') ? { path: to, status: 'renamed', previousPath: from, similarity: Number(code.slice(1)) } : { path: to, status: 'added' });
     } else {
       const p = parts[i++]!;
       files.push({ path: p, status: code === 'A' ? 'added' : code === 'D' ? 'deleted' : 'modified' });
