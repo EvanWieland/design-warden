@@ -60,7 +60,7 @@ npm trust github <package> --file release.yml --repo EvanWieland/design-warden -
 npm trust list <package>
 ```
 
-To check the setup without publishing, run the workflow by hand (Actions > Release > Run workflow). Its `trust` job exchanges the workflow's OIDC token for each package, as `npm publish` would, and fails for any package that does not trust it. All five packages require two-factor authentication and disallow tokens (npm package settings > Publishing access, set on 2026-10-12): only this workflow, or a maintainer approving with 2FA, can publish. Trusted publishing still works under that setting (checked with the trust job). The repository is private, so npm attaches no provenance attestations; they would appear automatically if it became public.
+To check the setup without publishing, run the workflow by hand (Actions > Release > Run workflow). Its `trust` job exchanges the workflow's OIDC token for each package, as `npm publish` would, and fails for any package that does not trust it. All five packages require two-factor authentication and disallow tokens (npm package settings > Publishing access, set on 2026-10-12): only this workflow, or a maintainer approving with 2FA, can publish. Trusted publishing still works under that setting (checked with the trust job). Since the repository went public (2026-10-12), npm attaches provenance attestations to what the workflow publishes; 0.2.0 predates that and has none.
 
 ## Reporting security issues
 

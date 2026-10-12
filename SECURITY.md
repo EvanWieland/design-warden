@@ -23,7 +23,7 @@ We aim to acknowledge reports within five working days. Fixes ship as regular co
 
 ## Hardening checklist for adopters
 
-- In CI, load the policy from the base branch (`--policy-ref`) and protect `.github/workflows/**`, the policy and the design-system paths with CODEOWNERS and a branch ruleset (a starting point is in [docs/ci-integration.md](docs/ci-integration.md#trust-model-in-ci)). This repository has a CODEOWNERS file, but its plan (private, free) cannot enforce rulesets.
+- In CI, load the policy from the base branch (`--policy-ref`) and protect `.github/workflows/**`, the policy and the design-system paths with CODEOWNERS and a branch ruleset (a starting point is in [docs/ci-integration.md](docs/ci-integration.md#trust-model-in-ci)). This repository has a CODEOWNERS file; no ruleset enforces it yet.
 - Keep `permissions: contents: read`. Run any job with a model key separately from pull-request code (see `examples/github-actions/design-warden.yml`).
 - Review `--semantic-dry-run` output before enabling a hosted model on private code, or use a local model.
 - Pin GitHub Actions to commit SHAs.

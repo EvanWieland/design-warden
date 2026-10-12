@@ -1,7 +1,7 @@
 # Publishes the npm packages when a version tag (v0.2.1) is pushed. No npm token is stored anywhere: npm
 # trusts this workflow file through trusted publishing (OIDC), set up per package with `npm trust github`
 # (CONTRIBUTING.md, "Releasing"). Run it by hand (Actions > Release > Run workflow) to check that trust
-# without publishing anything. The repository is private, so npm adds no provenance attestations.
+# without publishing anything. The repository is public, so npm attaches provenance attestations to what it publishes.
 name: Release
 
 on:
