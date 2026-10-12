@@ -1,4 +1,5 @@
-import postcss from 'postcss';
+import postcss, { type Container, type Node as CssNode } from 'postcss';
+import scss from 'postcss-scss';
 import valueParser from 'postcss-value-parser';
 
 export interface TokenDef {
@@ -6,42 +7,117 @@ export interface TokenDef {
   value: string;
   file: string;
   line: number;
+  /** Where a theme or breakpoint overrides the token (`.dark`, `@media (…) :root`); unset for the default (`:root`, `@theme`). */
+  selector?: string;
   /** DTCG `$deprecated`: true, or the reason. */
   deprecated?: true | string;
+  /** A family of names Sass generates (`--radius-#{$name}`): `name` is its static prefix, and the value is unknown. */
+  generated?: true;
 }
 
 export interface TokenSet {
+  /** Each token's default definition: the one under `:root` (or `html`, `:host`, `@theme`), else the first. */
   defs: Map<string, TokenDef>;
+  /** Whether an SCSS token source generates this name (`--radius-#{$name}` generates `--radius-chip`). */
+  generated(name: string): boolean;
+  /** Every definition of a token, the default first. */
+  definitions(name: string): TokenDef[];
   isAllowed(name: string): boolean;
   /** Allowed and not deprecated: the tokens a suggestion may name. */
   canSuggest(name: string): boolean;
-  /** Follows var() references to a literal value; null for unknown or cyclic tokens. */
-  resolve(name: string): string | null;
+  /** Follows var() references to a literal value; null for unknown or cyclic tokens. With a selector, as that theme overrides it. */
+  resolve(name: string, selector?: string): string | null;
+  /** Whether two tokens resolve to the same value in the default theme and in every theme that overrides either. */
+  sameEverywhere(a: string, b: string): boolean;
 }
 
-/** Token definitions of a token source: CSS custom properties, or a DTCG `*.tokens.json` file. */
-export const readTokenDefs = (file: string, text: string): TokenDef[] => (/\.json$/i.test(file) ? parseDtcgTokens(file, text) : parseTokenDefs(file, text));
+/** Token definitions of a token source: CSS or SCSS custom properties, or a DTCG `*.tokens.json` file. */
+export function readTokenDefs(file: string, text: string): TokenDef[] {
+  try {
+    return /\.json$/i.test(file) ? parseDtcgTokens(file, text) : parseTokenDefs(file, text);
+  } catch (err) {
+    // PostCSS names the file by its absolute path; the report names it as the policy does.
+    const e = err as Error & { reason?: string; line?: number };
+    throw new Error(`token source ${file} could not be read: ${e.reason ? `${e.reason} at line ${e.line}` : e.message}`);
+  }
+}
 
-/** Custom-property definitions in a token source file. The first definition of a name wins (default theme). */
+/** Selectors and at-rules that hold a token's default value. */
+// `*` is not one: it sets the property on every element, overriding what :root passes down.
+const DEFAULT_SELECTOR = /^(?::root|html|:host|:where\(:root\))$/;
+const TRANSPARENT_AT_RULES = new Set(['layer', 'theme']);
+
+/** Where a declaration sits, as written (`@media (min-width: 640px) :root`), or undefined for the default theme. */
+function selectorOf(node: CssNode): string | undefined {
+  const parts: string[] = [];
+  let isDefault = true;
+  for (let p: Container | undefined = node.parent as Container | undefined; p && p.type !== 'root'; p = p.parent as Container | undefined) {
+    if (p.type === 'rule') {
+      const selector = (p as unknown as { selector: string }).selector.replace(/\s+/g, ' ').trim();
+      parts.unshift(selector);
+      if (!selector.split(',').some((s) => DEFAULT_SELECTOR.test(s.trim()))) isDefault = false;
+    } else if (p.type === 'atrule') {
+      const a = p as unknown as { name: string; params: string };
+      if (TRANSPARENT_AT_RULES.has(a.name)) continue;
+      parts.unshift(`@${a.name} ${a.params}`.trim());
+      isDefault = false;
+    }
+  }
+  return isDefault ? undefined : parts.join(' ');
+}
+
+/** Custom-property definitions in a CSS or SCSS token source file, with the theme or breakpoint each sits in. */
 export function parseTokenDefs(file: string, css: string): TokenDef[] {
   const defs: TokenDef[] = [];
-  postcss.parse(css, { from: file }).walkDecls(/^--/, (d) => {
-    defs.push({ name: d.prop, value: d.value.trim(), file, line: d.source?.start?.line ?? 1 });
+  (/\.scss$/i.test(file) ? scss : postcss).parse(css, { from: file }).walkDecls(/^--/, (d) => {
+    const selector = selectorOf(d);
+    const line = d.source?.start?.line ?? 1;
+    // `--radius-#{$name}` in an @each loop: every `--radius-*` name is the source's; only Sass knows which and their values.
+    const hole = d.prop.indexOf('#{');
+    if (hole >= 0) return void (d.prop.slice(0, hole).endsWith('-') && defs.push({ name: d.prop.slice(0, hole), value: '', file, line, generated: true }));
+    defs.push({ name: d.prop, value: d.value.trim(), file, line, ...(selector !== undefined && { selector }) });
   });
   return defs;
 }
 
-export function createTokenSet(defs: TokenDef[], allowedPrefixes: readonly string[]): TokenSet {
-  const map = new Map<string, TokenDef>();
-  for (const d of defs) if (!map.has(d.name)) map.set(d.name, d);
-  const resolve = (name: string, depth = 0): string | null => {
-    const def = map.get(name);
+export function createTokenSet(input: TokenDef[], allowedPrefixes: readonly string[]): TokenSet {
+  const families = input.filter((d) => d.generated).map((d) => d.name);
+  const defs = input.filter((d) => !d.generated);
+  const all = new Map<string, TokenDef[]>();
+  for (const d of defs) {
+    const list = all.get(d.name) ?? all.set(d.name, []).get(d.name)!;
+    // Under the same selector the last definition applies, as in CSS.
+    const same = list.findIndex((x) => x.selector === d.selector);
+    if (same < 0) list.push(d);
+    else list[same] = d;
+  }
+  // The default definition first; without one (tokens scoped to a class, as in many SCSS themes) the first wins.
+  for (const list of all.values()) list.sort((a, b) => Number(a.selector !== undefined) - Number(b.selector !== undefined));
+  const map = new Map([...all].map(([name, list]) => [name, list[0]!]));
+  // A token defined only in selectors that override default tokens (`.dark`) exists only in those themes: it has no default value.
+  const overrides = new Set([...all.values()].filter((l) => l[0]!.selector === undefined).flatMap((l) => l.flatMap((d) => (d.selector === undefined ? [] : [d.selector]))));
+  const themeOnly = (list: TokenDef[]) => list.every((d) => d.selector !== undefined && overrides.has(d.selector));
+  const resolve = (name: string, selector?: string, depth = 0): string | null => {
+    const list = all.get(name);
+    const def = (selector !== undefined && list?.find((d) => d.selector === selector)) || (list && !themeOnly(list) ? list[0] : undefined);
     if (!def || depth > 10) return null;
     const ref = /^var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)$/.exec(def.value);
-    return ref ? resolve(ref[1]!, depth + 1) : def.value;
+    return ref ? resolve(ref[1]!, selector, depth + 1) : def.value;
   };
+  // A token's value in every theme of the sources, through aliases: `.dark { --palette-base }` changes what aliases it.
+  const themes = [undefined, ...new Set(defs.flatMap((d) => (d.selector === undefined ? [] : [d.selector])))];
+  const signatures = new Map<string, string>();
+  const signature = (name: string) => signatures.get(name) ?? signatures.set(name, themes.map((s) => resolve(name, s)).join('\0')).get(name)!;
   const isAllowed = (name: string) => allowedPrefixes.some((p) => name.startsWith(p));
-  return { defs: map, isAllowed, canSuggest: (name) => isAllowed(name) && !map.get(name)?.deprecated, resolve: (n) => resolve(n) };
+  return {
+    defs: map,
+    generated: (name) => families.some((p) => name.startsWith(p)),
+    definitions: (name) => all.get(name) ?? [],
+    isAllowed,
+    canSuggest: (name) => isAllowed(name) && !map.get(name)?.deprecated,
+    resolve: (n, selector) => resolve(n, selector),
+    sameEverywhere: (a, b) => resolve(a) !== null && signature(a) === signature(b),
+  };
 }
 
 // ---- DTCG token files (Design Tokens Format Module 2025.10) ----------------
@@ -266,9 +342,16 @@ export function nearestToken(
 ): TokenSuggestion | null {
   const role = opts.property ? ROLE_HINTS.find(([re]) => re.test(opts.property!))?.[1] : undefined;
   const names = [...tokens.defs.keys()].filter((n) => n.startsWith(prefix) && tokens.canSuggest(n) && n !== opts.exclude);
-  const forRole = role ? closest(tokens, names.filter((n) => n.split('-').includes(role)), literal, kind) : null;
-  return forRole ?? closest(tokens, names, literal, kind);
+  if (!role) return closest(tokens, names, literal, kind);
+  const words = (n: string) => n.split('-');
+  // Tokens for the role, then tokens named for no role, and only then one named for another (`--color-danger-text` is a poor background).
+  return (
+    closest(tokens, names.filter((n) => words(n).includes(role)), literal, kind) ??
+    closest(tokens, names.filter((n) => !words(n).some((w) => ROLE_WORDS.has(w))), literal, kind) ??
+    closest(tokens, names, literal, kind)
+  );
 }
+const ROLE_WORDS = new Set(ROLE_HINTS.map(([, w]) => w));
 
 function closest(tokens: TokenSet, names: string[], literal: string | number, kind: 'color' | 'length'): TokenSuggestion | null {
   const color = kind === 'color' && typeof literal === 'string' ? parseColor(literal) : null;
@@ -288,19 +371,19 @@ function closest(tokens: TokenSet, names: string[], literal: string | number, ki
     if (d !== null && (!best || d < best.d)) best = { name, value, d };
   }
   if (!best) return null;
-  // Too far away to be a helpful suggestion (about a clearly different hue, or a different spacing step).
+  // Too far away to be a helpful suggestion: a clearly different hue, or a step a third or more away (8px is not "near" 4px).
   const lit = kind === 'length' ? Math.abs(parseLength(literal) ?? 0) : 0;
-  if (kind === 'color' ? best.d > 0.15 : best.d > Math.max(4, lit * 0.25)) return null;
+  if (kind === 'color' ? best.d > 0.15 : best.d > Math.max(1, lit / 3)) return null;
   return { name: best.name, value: best.value, exact: best.d < (kind === 'color' ? 0.005 : 0.5) };
 }
 
-/** `var(--x)` names referenced in a CSS value, including inside fallbacks and calc(). */
-export function varReferences(value: string): string[] {
-  const names: string[] = [];
+/** `var(--x)` references in a CSS value, including inside fallbacks and calc(), and whether each has a fallback. */
+export function varReferences(value: string): { name: string; fallback: boolean }[] {
+  const refs: { name: string; fallback: boolean }[] = [];
   valueParser(value).walk((n) => {
-    if (n.type === 'function' && n.value === 'var' && n.nodes[0]?.type === 'word') names.push(n.nodes[0].value);
+    if (n.type === 'function' && n.value === 'var' && n.nodes[0]?.type === 'word') refs.push({ name: n.nodes[0].value, fallback: n.nodes.some((x) => x.type === 'div' && x.value === ',') });
   });
-  return names;
+  return refs;
 }
 
 export function levenshtein(a: string, b: string): number {

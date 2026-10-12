@@ -1,0 +1,12 @@
+/* Benchmark: CSS patterns from the real-world trials (2026-10-12). Each "@expect <rule>" marker labels a finding expected on its line. */
+
+/* Tricky negatives: a custom property defined in another rule, a hook with a fallback, colors built from tokens, non-color properties. */
+.rw-local { --rw-gap: var(--space-2); }
+.rw-uses-local { gap: var(--rw-gap); }
+.rw-hook { padding-top: var(--rw-header-height, 0px); }
+.rw-token-color { color: rgb(from var(--color-text-primary) r g b / 50%); border-color: hsl(var(--color-border-default)); }
+.rw-dash { stroke-dasharray: 4 4; border-radius: var(--radius-md); }
+
+.rw-literal { outline-color: rgb(0 0 0 / 50%); } /* @expect color/semantic-tokens */
+.rw-undefined { box-shadow: var(--shadow-popover-9); } /* @expect tokens/semantic-only */
+.rw-typo-with-fallback { color: var(--color-txet-primary, currentColor); } /* @expect tokens/semantic-only */

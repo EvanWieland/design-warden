@@ -33,7 +33,8 @@ export interface Box {
 
 export type Evidence =
   | { kind: 'code'; file: string; line: number; snippet: string }
-  | { kind: 'token-change'; token: string; before: string | null; after: string | null; usages: string[] }
+  /** `selector`: the theme or breakpoint override that changed (`.dark`); unset for the token's default value. */
+  | { kind: 'token-change'; token: string; selector?: string; before: string | null; after: string | null; usages: string[] }
   | { kind: 'usage'; file: string; line: number; detail: string }
   | { kind: 'screenshot'; capture: string; region?: Box; before?: string; after?: string; diff?: string }
   | { kind: 'note'; text: string };

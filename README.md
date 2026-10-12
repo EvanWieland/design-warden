@@ -141,7 +141,7 @@ pnpm build            # emit dist/ for the npm packages (the repository itself r
 pnpm test:pack        # build, pack, install the tarballs into a fresh project and run design-warden (network)
 ```
 
-Benchmark baseline (172 labelled findings, including known traps and known limitations): **99.4% precision, 99.4% recall**. The misses are documented: the `font` shorthand is not parsed; name-based duplicate detection has false positives. The live-model evaluation has **not** been run in this environment. Methodology and caveats: [docs/evaluation.md](docs/evaluation.md).
+Benchmark baseline (201 labelled findings, including known traps, known limitations and cases from three real codebases): **99.5% precision, 99.5% recall**. The misses are documented: the `font` shorthand is not parsed; name-based duplicate detection has false positives. The live-model evaluation has **not** been run in this environment. Methodology and caveats: [docs/evaluation.md](docs/evaluation.md).
 
 ## CI
 

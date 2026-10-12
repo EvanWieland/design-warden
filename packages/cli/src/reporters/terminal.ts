@@ -31,7 +31,8 @@ export function renderTerminal(report: Report, opts: { verbose?: boolean } = {})
   out.push('');
 
   const shown = report.findings.filter((f) => opts.verbose || (!f.suppressed && !f.preexisting));
-  if (!shown.length) out.push(paint('green', '  No findings.'));
+  const failed = report.engines.some((e) => e.status === 'failed');
+  if (!shown.length) out.push(failed ? paint('yellow', '  No findings from the engines that completed.') : paint('green', '  No findings.'));
   for (const f of shown) {
     const [label, style] = LABEL[f.outcome];
     const where = f.location ? `${t(f.location.file)}:${f.location.line}${f.location.column ? `:${f.location.column}` : ''}` : '(project)';
@@ -39,7 +40,7 @@ export function renderTerminal(report: Report, opts: { verbose?: boolean } = {})
     out.push(`  ${paint(style, label)} ${paint('bold', t(f.ruleId))}  ${where}${paint('dim', tags)}`);
     out.push(`         ${t(f.message)}`);
     for (const e of f.evidence) {
-      if (e.kind === 'token-change') out.push(paint('dim', `         ${t(e.token)}: ${t(e.before ?? '(none)')} -> ${t(e.after ?? '(removed)')} · ${e.usages.length} usage(s)`));
+      if (e.kind === 'token-change') out.push(paint('dim', `         ${t(e.token)}${e.selector ? ` (${t(e.selector)})` : ""}: ${t(e.before ?? '(none)')} -> ${t(e.after ?? '(removed)')} · ${e.usages.length} usage(s)`));
       if (e.kind === 'note' && f.engine !== 'source') out.push(paint('dim', `         ${t(e.text)}`));
     }
     if (f.suggestion) out.push(paint('green', `         -> ${t(f.suggestion)}`));
@@ -48,6 +49,11 @@ export function renderTerminal(report: Report, opts: { verbose?: boolean } = {})
     if (g) out.push(paint('dim', `         Guidance: ${t(g.title)}${g.path ? ` (${t(g.path)}${g.section ? ` > ${t(g.section)}` : ''})` : g.url ? ` (${t(g.url)})` : ''}`));
   }
 
+  if (shown.length > 10) {
+    const byRule = new Map<string, number>();
+    for (const f of shown) byRule.set(f.ruleId, (byRule.get(f.ruleId) ?? 0) + 1);
+    out.push('', `By rule: ${[...byRule].sort((a, b) => b[1] - a[1]).map(([r, n]) => `${t(r)} ${n}`).join(' · ')}`);
+  }
   out.push('');
   out.push(
     'Engines: ' +

@@ -1,7 +1,7 @@
 import type { ComponentSpec, FindingDraft } from '@design-warden/core';
 import { z } from 'zod';
 import { defineCheck, fileFinding } from '../check.ts';
-import type { JsxUsage } from '../jsx.ts';
+import type { ComponentDefinition, JsxUsage } from '../jsx.ts';
 import { branches, literalOf } from '../style-values.ts';
 
 /** `tag`, `tag[attr=value]` or `[attr=value]`, as used in a component's `replaces`. */
@@ -53,6 +53,10 @@ export const rawElement = defineCheck({
     const out: FindingDraft[] = [];
     for (const u of ctx.project.usages(ctx.file)) {
       if (u.resolved.kind !== 'intrinsic') continue;
+      // Handed to a registry component that replaces raw elements (`<Button asChild><a>`, `render={<a />}`), which styles it.
+      // A trigger that only adds behaviour (Radix `DialogTrigger`) leaves the raw element as it is.
+      const host = u.composedInto?.kind === 'design-system' ? ctx.project.componentsByName.get(u.composedInto.component) : undefined;
+      if (host && host.replaces.length > 0) continue;
       const element = u.resolved.element;
       if (ctx.options.elements && !ctx.options.elements.includes(element)) continue;
       const role = literalAttr(u, 'role');
@@ -95,12 +99,14 @@ export const componentProps = defineCheck({
       const spec = ctx.project.componentsByName.get(u.resolved.component);
       if (!spec || (ctx.options.components && !ctx.options.components.includes(spec.name))) continue;
       const at = { line: u.line, endLine: u.endLine };
+      // A required prop may come from the content (a Svelte snippet), so its absence spans the whole element there.
+      const missingAt = { line: u.line, endLine: u.propsEndLine ?? u.endLine };
       for (const [prop, contract] of Object.entries(spec.props)) {
         const attr = u.attributes.get(prop);
         if (attr === undefined) {
           if (!contract.required) continue;
           out.push(
-            fileFinding(ctx, 'component-props', at, {
+            fileFinding(ctx, 'component-props', missingAt, {
               verdict: u.hasSpread ? 'insufficient-evidence' : 'violation',
               confidence: u.hasSpread ? 'low' : 'high',
               message: u.hasSpread
@@ -141,7 +147,21 @@ export const duplicateComponent = defineCheck({
   runFile(ctx) {
     if (ctx.project.inDesignSystem(ctx.file.path)) return [];
     const out: FindingDraft[] = [];
-    for (const def of ctx.project.definitions(ctx.file)) {
+    const defs = ctx.project.definitions(ctx.file);
+    const byName = new Map(defs.map((d) => [d.name, d]));
+    /** Renders the component: itself, a part (`Card.Header`), a variant named like it (`IconButton`), or through a component of this file. */
+    const composes = (def: ComponentDefinition, spec: ComponentSpec, alias: string[], seen = new Set<string>()): boolean =>
+      !seen.has(def.name) &&
+      (seen.add(def.name), true) &&
+      def.usages.some((u) => {
+        if (u.resolved.kind === 'design-system') {
+          const c = u.resolved.component;
+          return c === spec.name || c.startsWith(`${spec.name}.`) || words(c).slice(-alias.length).join(' ') === alias.join(' ');
+        }
+        const local = u.resolved.kind === 'component' ? byName.get(u.resolved.name) : undefined;
+        return !!local && composes(local, spec, alias, seen);
+      });
+    for (const def of defs) {
       const nameWords = words(def.name);
       for (const spec of ctx.project.policy.components) {
         // Compare with the last words of the name: "TableOfContents" is not a table, "StatusPill" is a pill.
@@ -150,7 +170,7 @@ export const duplicateComponent = defineCheck({
           return a.length > 0 && nameWords.slice(-a.length).join(' ') === a.join(' ');
         });
         if (!hit) continue;
-        if (def.usages.some((u) => u.resolved.kind === 'design-system' && u.resolved.component === spec.name)) continue;
+        if (composes(def, spec, words(hit))) continue;
         out.push(
           fileFinding(ctx, 'duplicate-component', { line: def.line, endLine: def.endLine }, {
             verdict: 'probable-violation',

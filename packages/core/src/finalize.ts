@@ -117,7 +117,7 @@ function fingerprint(f: Pick<Finding, 'ruleId' | 'location' | 'evidence' | 'mess
   // Only evidence from the finding's own file: a visual finding's style hints point elsewhere and are shared between screens.
   const code = f.evidence.find((e) => e.kind === 'code' && e.file === f.location?.file);
   const text = code?.kind === 'code' ? code.snippet.replace(/\s+/g, ' ').trim() : f.message;
-  // A multi-line span (a whole element or component) is hashed whole, so an edit anywhere in it changes the id.
+  // A multi-line span (an element's opening tag, or a component) is hashed whole, so an edit anywhere in it changes the id.
   const span = f.spanText ? `\0${f.spanText.replace(/\s+/g, ' ').trim()}` : '';
   const base = createHash('sha256')
     .update(`${f.ruleId}\0${f.location?.file ?? ''}\0${text}${span}`)

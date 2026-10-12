@@ -13,11 +13,20 @@ export interface TemplateElement {
   /** Set when the tag is chosen at runtime (`<component :is>`, `<svelte:element this>`). */
   dynamic?: string;
   line: number;
+  /** Last line of the opening tag: a finding about the element (its tag and attributes) does not span its children. */
   endLine: number;
+  /** Last line where props can be given, when the content also passes props (a Svelte component's snippets). */
+  propsEndLine?: number;
   /** Babel-like values: a string literal, or an expression container. */
   attributes: { name: string; value: Node | true }[];
   spread: boolean;
   parent?: TemplateElement;
+}
+
+/** Offset of the `>` that closes an opening tag, searched from the end of its last attribute (or of its name). */
+export function openTagEnd(text: string, from: number, fallback: number): number {
+  const i = text.indexOf('>', from);
+  return i < 0 ? fallback : i;
 }
 
 export interface TemplateParts {
@@ -122,6 +131,9 @@ function localComponents(file: ParsedFile, byLocal: Map<string, ImportBinding>):
   return out;
 }
 
+/** The design-system name of an imported binding: its export name, or for a default import the registry component its file holds. */
+export const dsName = (imp: ImportBinding) => (imp.imported === 'default' ? (imp.component ?? imp.local) : imp.imported);
+
 export function templateUsages(file: ParsedFile, imports: ImportBinding[], globals?: ReadonlyMap<string, ImportBinding>): JsxUsage[] {
   const byLocal = new Map(imports.map((i) => [i.local, i]));
   const locals = file.kind === 'vue' ? localComponents(file, byLocal) : new Map<string, ImportBinding | null>();
@@ -140,13 +152,16 @@ export function templateUsages(file: ParsedFile, imports: ImportBinding[], globa
       resolved = !imp?.isDesignSystem
         ? { kind: 'component', name }
         : parts.length === 1
-          ? { kind: 'design-system', component: imp.imported === 'default' ? imp.local : imp.imported }
-          : parts.length === 2 && imp.imported === '*'
-            ? { kind: 'design-system', component: parts[1]! }
+          ? { kind: 'design-system', component: dsName(imp) }
+          : parts.length === 2
+            ? { kind: 'design-system', component: imp.imported === '*' ? parts[1]! : `${dsName(imp)}.${parts[1]}` }
             : { kind: 'component', name };
     }
     const attributes = new Map(el.attributes.map((a) => [a.name, a.value as JSXAttribute['value'] | true]));
-    usages.set(el, { resolved, line: el.line, endLine: el.endLine, attributes, hasSpread: el.spread, parent: el.parent && usages.get(el.parent) });
+    const parent = el.parent && usages.get(el.parent);
+    // The child of an as-child component (Reka UI, Radix Vue) is rendered by that component.
+    const composedInto = el.parent?.component && el.parent.attributes.some((a) => a.name === 'asChild') ? parent?.resolved : undefined;
+    usages.set(el, { resolved, line: el.line, endLine: el.endLine, ...(el.propsEndLine && { propsEndLine: el.propsEndLine }), attributes, hasSpread: el.spread, parent, ...(composedInto && { composedInto }) });
   }
   return [...usages.values()];
 }

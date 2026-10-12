@@ -1,0 +1,6 @@
+/* Benchmark: CSS cases from the detection audit of the real-world fixes (2026-10-12). Each "@expect <rule>" marker labels a finding expected on its line. */
+
+.rw2-a { --overlay-color: black; } /* @expect color/semantic-tokens */
+.rw2-b { -webkit-tap-highlight-color: red; } /* @expect color/semantic-tokens */
+.rw2-c { background: rgb(0 0 0 / var(--overlay-alpha, 0.5)); } /* @expect color/semantic-tokens: only the alpha comes from a variable */
+.rw2-d { border-radius: var(--radius-card, 12px); } /* @expect tokens/semantic-only: a token-prefixed name is not excused by its fallback */

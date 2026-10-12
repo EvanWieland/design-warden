@@ -22,6 +22,9 @@ describe('engine failure handling', () => {
     expect(code).toBe(3);
     expect(out.join('\n')).toContain('Result: ERROR');
     expect(out.join('\n')).toContain('source engine failed (fail-closed): parser exploded');
+    // "No findings." above an error read as a clean result (Excalidraw trial).
+    expect(out.join('\n')).not.toContain('No findings.');
+    expect(out.join('\n')).toContain('No findings from the engines that completed.');
   });
 
   it.each([

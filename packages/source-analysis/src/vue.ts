@@ -1,7 +1,7 @@
 // Vue single-file components (@vue/compiler-dom in SFC mode) as template parts (templates.ts).
 import { createRequire } from 'node:module';
 import type { parse as ParseSfc } from '@vue/compiler-dom';
-import { container, expressionNode, identifierNode, keepRanges, positions, stringNode, styleBlock, type ParsedTemplate, type TemplateElement } from './templates.ts';
+import { container, expressionNode, identifierNode, keepRanges, openTagEnd, positions, stringNode, styleBlock, type ParsedTemplate, type TemplateElement } from './templates.ts';
 
 // compiler-dom node and element types used here.
 const ELEMENT = 1;
@@ -82,7 +82,7 @@ export function parseVue(text: string): ParsedTemplate {
       }
     }
     const runtimeTag = el.tag === 'component' && attributes.some((a) => a.name === 'is');
-    const e: TemplateElement = { tag: el.tag, component, ...(runtimeTag && { dynamic: 'component' }), line: el.loc.start.line, endLine: el.loc.end.line, attributes, spread, parent };
+    const e: TemplateElement = { tag: el.tag, component, ...(runtimeTag && { dynamic: 'component' }), line: el.loc.start.line, endLine: pos(openTagEnd(text, el.props.at(-1)?.loc.end.offset ?? el.loc.start.offset + 1 + el.tag.length, el.loc.end.offset)).line, attributes, spread, parent };
     elements.push(e);
     for (const c of el.children) visit(c, e);
   };

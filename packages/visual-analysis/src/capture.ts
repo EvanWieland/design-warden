@@ -193,12 +193,14 @@ export function serveStatic(dir: string): Promise<{ url: string; close: () => Pr
     let file: string;
     try {
       const rel = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname).replace(/^\/+/, '');
-      file = resolveInside(root, rel || 'index.html');
+      // Static-site generators write /guide/intro as guide/intro.html or guide/intro/index.html (clean URLs); any other
+      // path is a route of the app itself. Every candidate goes through resolveInside, symlink check included.
+      const candidates = rel ? [rel, `${rel}.html`, path.posix.join(rel, 'index.html')] : [];
+      file = [...candidates, 'index.html'].map((c) => resolveInside(root, c)).find((p) => fs.existsSync(p) && fs.statSync(p).isFile()) ?? path.join(root, 'index.html');
     } catch {
       res.writeHead(400).end();
       return;
     }
-    if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, 'index.html');
     res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
     // A file can disappear between the check and the read; fail the request, not the process.
     fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);

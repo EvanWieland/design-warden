@@ -43,7 +43,8 @@ export function arbitraryValue(cls: string): { property: string; value: string }
   return { property, value };
 }
 
-const PALETTE = '(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|[1-9]00|950)|black|white';
+// The default palette as of Tailwind 4.3 (taupe, mauve, mist and olive came in 4.2).
+const PALETTE = '(?:slate|gray|zinc|neutral|stone|taupe|mauve|mist|olive|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:50|[1-9]00|950)|black|white';
 // The palette is part of the pattern, so `text-shadow-red-500` backtracks to the `text-shadow` utility.
 const PALETTE_UTILITY = new RegExp(`^(bg|text|border(?:-[xytrblse])?|divide|outline|ring(?:-offset)?|inset-ring|fill|stroke|decoration|accent|caret|placeholder|from|via|to|shadow|inset-shadow|text-shadow|drop-shadow)-(${PALETTE})$`);
 
@@ -86,5 +87,11 @@ function matching(s: string, open: number): number {
   return -1;
 }
 
-/** Underscores are spaces in arbitrary values; `\_` is a literal underscore. */
-const decode = (s: string) => s.replace(/\\_/g, '\0').replace(/_/g, ' ').replace(/\0/g, '_');
+/** Underscores are spaces in arbitrary values; `\_` is a literal underscore. Math gets the spaces Tailwind adds: `calc(1rem+2px)`. */
+const decode = (s: string) => spaceMath(s.replace(/\\_/g, '\0').replace(/_/g, ' ').replace(/\0/g, '_'));
+
+/**
+ * `calc(100%-13px)` → `calc(100% - 13px)`: an operator between a whole number (with its unit) or `)` and a number, `(` or var().
+ * A number inside a name (`--size-ctl-2-5`) follows a letter, dot or dash, so it is left alone.
+ */
+const spaceMath = (v: string) => (/\b(?:calc|clamp|min|max)\(/.test(v) ? v.replace(/((?<![\w.-])\d*\.?\d+(?:[a-z]+|%)?|\))([-+*/])(?=[\d.(]|var\()/gi, '$1 $2 ') : v);

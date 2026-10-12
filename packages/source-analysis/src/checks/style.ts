@@ -5,7 +5,25 @@ import { defineCheck, fileFinding, type FileCheckContext } from '../check.ts';
 import { styleValues, type StyleValue } from '../style-values.ts';
 import { COLOR_FUNCTIONS, HEX_COLOR, NAMED_COLORS, levenshtein, nearestToken, parseLength, varReferences, type TokenSet } from '../tokens.ts';
 
-const COLOR_PROPERTY = /colou?r|background|border|outline|fill|stroke|shadow|caret|accent|text-decoration|column-rule/i;
+/**
+ * CSS properties whose value is, or contains, a color: any `*-color` (custom properties and vendor prefixes too), the
+ * shorthands that hold one, shadows and filters. Widths, radii, offsets and dash arrays are not colors.
+ */
+const COLOR_PROPERTY =
+  /(?:^|-)colou?r$|^(?:-(?:webkit|moz|ms|o)-)?(?:background(?:-image)?|border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?|outline|fill|stroke|(?:box|text)-shadow|text-decoration|column-rule|text-stroke|filter|drop-shadow|bgcolor)$/i;
+/** Import sources of the project itself: relative, or a path alias (`@/`, `~/`, `#/`). */
+const PROJECT_SOURCE = /^(?:\.|[@~#]\/)/;
+
+/** A color function built from a token: `var()` gives its origin (`rgb(from var(--x) r g b)`) or a color channel, not only the alpha. */
+function tokenBuilt(fn: valueParser.FunctionNode): boolean {
+  const hasVar = (n: valueParser.Node) => /\bvar\(/.test(valueParser.stringify(n));
+  const parts = fn.nodes.filter((n) => n.type !== 'space' && n.type !== 'comment' && !(n.type === 'div' && n.value === ','));
+  const from = parts.findIndex((n) => n.type === 'word' && n.value.toLowerCase() === 'from');
+  if (from >= 0) return !!parts[from + 1] && hasVar(parts[from + 1]!);
+  const slash = parts.findIndex((n) => n.type === 'div' && n.value === '/');
+  const channels = (slash >= 0 ? parts.slice(0, slash) : parts.slice(0, 3 + Number(fn.value.toLowerCase() === 'color'))).filter((n) => !(fn.value.toLowerCase() === 'color' && n === parts[0]));
+  return channels.some(hasVar);
+}
 const SHADOW_PROPERTY = /^(box-shadow|text-shadow)$/;
 
 const located = (sv: StyleValue) => ({ line: sv.line, column: sv.column, endLine: sv.endLine });
@@ -79,11 +97,17 @@ export const noHardcodedColor = defineCheck({
         continue;
       }
       if (typeof sv.value !== 'string') continue;
-      const namedAllowed = COLOR_PROPERTY.test(sv.property) || sv.source === 'jsx-prop';
+      // A word such as `lime` passed to one of the project's own or the design system's components may be a variant name;
+      // on an element, in CSS, or passed to a third-party component (an icon set), it is a color.
+      const binding = sv.onComponent ? ctx.project.imports(ctx.file).find((i) => i.local === sv.onComponent) : undefined;
+      const variantProp = !!sv.onComponent && (!binding || binding.isDesignSystem || PROJECT_SOURCE.test(binding.source));
+      const namedAllowed = sv.source === 'jsx-prop' ? !variantProp : COLOR_PROPERTY.test(sv.property);
       const found = literals(sv.value, (n) => {
         if (n.type === 'function') {
           if (n.value === 'url') return false;
-          return COLOR_FUNCTIONS.has(n.value.toLowerCase()) ? valueParser.stringify(n) : null;
+          if (!COLOR_FUNCTIONS.has(n.value.toLowerCase())) return null;
+          // Built from a token (`rgb(from var(--x) r g b / 50%)`, `hsl(var(--h) 50% 40%)`): not a hardcoded color.
+          return tokenBuilt(n) ? false : valueParser.stringify(n);
         }
         return n.type === 'word' && (HEX_COLOR.test(n.value) || (namedAllowed && NAMED_COLORS.has(n.value.toLowerCase()))) ? n.value : null;
       });
@@ -187,13 +211,16 @@ export const tokenUsage = defineCheck({
   id: 'token-usage',
   engine: 'source',
   description:
-    'Every var(--token) must be a defined token with an allowed (semantic) prefix, or a custom property defined in the same file; design tokens may only be defined in the token sources.',
-  options: z.strictObject({}),
+    'Every var(--token) must be a defined token with an allowed (semantic) prefix, or a custom property the project or a listed library defines; design tokens may only be defined in the token sources.',
+  options: z.strictObject({
+    // Custom properties set outside the project's code, by libraries (`--radix-`) or their runtime (`--available-height`): prefixes or whole names.
+    external: z.array(z.string().startsWith('--')).default([]),
+  }),
   runFile(ctx) {
     if (skipTokenSources(ctx)) return [];
     const { tokens } = ctx.project;
     const values = styleValues(ctx.file);
-    const local = new Set(values.filter((v) => v.definesCustomProperty).map((v) => v.property));
+    const defined = ctx.project.customProperties();
     const allowedNames = [...tokens.defs.keys()].filter((n) => tokens.canSuggest(n));
     const out: FindingDraft[] = [];
     for (const sv of values) {
@@ -213,9 +240,9 @@ export const tokenUsage = defineCheck({
       const subject = (name: string) => (sv.theme ? `Class \`${sv.className}\` uses \`${name}\`, which` : `\`${name}\``);
       const ref = (name: string, token: string) =>
         sv.theme && token.startsWith('--color-') ? `\`${replaceLast(sv.className!, name.slice('--color-'.length), token.slice('--color-'.length))}\` (var(${token}))` : `var(${token})`;
-      for (const name of varReferences(sv.value)) {
-        const def = tokens.defs.get(name);
-        if (!def && local.has(name)) continue;
+      for (const { name, fallback } of varReferences(sv.value)) {
+        // A name an SCSS token source generates (`--radius-#{$name}`) is a token whose value only Sass knows.
+        const def = tokens.defs.get(name) ?? (tokens.generated(name) ? { name, value: '', file: '', line: 1 } : undefined);
         if (def && tokens.isAllowed(name)) {
           if (def.deprecated) {
             out.push(fileFinding(ctx, 'token-usage', located(sv), { verdict: 'violation', message: `${subject(name)} is deprecated${def.deprecated === true ? '.' : `: ${def.deprecated}`}` }));
@@ -223,7 +250,28 @@ export const tokenUsage = defineCheck({
           continue;
         }
         if (!def) {
+          // A component's own custom property, or one a listed library sets.
+          if (defined.names.has(name) || ctx.options.external.some((p) => name.startsWith(p))) continue;
           const close = allowedNames.map((n) => [n, levenshtein(n, name)] as const).sort((a, b) => a[1] - b[1])[0];
+          const typo = !!close && close[1] <= 2;
+          // A palette class is judged as the class it is: the author wrote `bg-red-500`, not a runtime name.
+          // A name with a token prefix claims to be a token, so a fallback does not excuse it; a hook does (`var(--layout-top, 0px)`).
+          if (!sv.theme && !typo && fallback && !tokens.isAllowed(name)) continue;
+          // A name built at runtime (`--chart-${key}`) may exist. Inside a token prefix it may also be an invented token: ask for review.
+          // ponytail: a family counts project-wide, not only where the component that builds it is used; tie them together if that hides bugs.
+          const family = sv.theme || typo ? undefined : [...defined.families].find(([p]) => name.startsWith(p));
+          if (family && !tokens.isAllowed(name)) continue;
+          if (family) {
+            out.push(
+              fileFinding(ctx, 'token-usage', located(sv), {
+                verdict: 'insufficient-evidence',
+                confidence: 'medium',
+                message: `${subject(name)} is not a defined design token; a name built at runtime from \`${family[0]}\` (${family[1]}) may set it.`,
+                suggestion: 'If it is set at runtime, give the family its own prefix outside the token prefixes (for example --chart-), or list it as external.',
+              }),
+            );
+            continue;
+          }
           out.push(
             fileFinding(ctx, 'token-usage', located(sv), {
               verdict: 'violation',
@@ -232,9 +280,8 @@ export const tokenUsage = defineCheck({
             }),
           );
         } else {
-          const resolved = tokens.resolve(name);
-          const same = allowedNames.filter((n) => resolved !== null && tokens.resolve(n) === resolved);
-          const use = same.slice(0, 3);
+          // Same value in every theme: a token that only matches in the default theme would change dark mode.
+          const use = allowedNames.filter((n) => tokens.sameEverywhere(name, n)).slice(0, 3);
           out.push(
             fileFinding(ctx, 'token-usage', located(sv), {
               verdict: 'violation',
@@ -243,7 +290,7 @@ export const tokenUsage = defineCheck({
                 ? undefined
                 : sv.theme
                   ? `Use ${use.map((t) => ref(name, t)).join(' or ')}, which ${use.length === 1 ? 'has' : 'have'} the same value.`
-                  : `Use ${use.map((n) => `var(${n})`).join(' or ')}, which resolve to the same value.`,
+                  : `Use ${use.map((n) => `var(${n})`).join(' or ')}, which ${use.length === 1 ? 'resolves' : 'resolve'} to the same value.`,
             }),
           );
         }

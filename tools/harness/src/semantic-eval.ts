@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { openAiCompatibleProvider } from '@design-warden/semantic-review';
 import { runScenario, type SemanticMode } from './run.ts';
 import { listScenarios } from './scenarios.ts';
 
@@ -9,11 +10,19 @@ import { listScenarios } from './scenarios.ts';
  *
  *   pnpm eval:semantic                       recorded responses (no network): checks the pipeline
  *   pnpm eval:semantic --provider anthropic  live model; needs credentials and costs money
+ *   pnpm eval:semantic --provider openai-compatible --model qwen3:8b [--base-url http://127.0.0.1:11434/v1]
+ *                                            any Chat Completions server, e.g. a local Ollama model
  */
-const { values } = parseArgs({ options: { provider: { type: 'string', default: 'replay' } } });
+const { values } = parseArgs({
+  options: { provider: { type: 'string', default: 'replay' }, model: { type: 'string' }, 'base-url': { type: 'string', default: process.env.DESIGN_WARDEN_OPENAI_BASE_URL ?? 'http://127.0.0.1:11434/v1' } },
+});
+const local = values.provider === 'openai-compatible';
 const mode = values.provider as SemanticMode;
-if (mode !== 'replay' && mode !== 'anthropic') throw new Error('--provider must be replay or anthropic');
+if (!local && mode !== 'replay' && mode !== 'anthropic') throw new Error('--provider must be replay, anthropic or openai-compatible');
+if (local && !values.model) throw new Error('--provider openai-compatible needs --model');
+const provider = local ? openAiCompatibleProvider({ baseUrl: values['base-url'], model: values.model!, apiKey: process.env.DESIGN_WARDEN_OPENAI_API_KEY }) : undefined;
 if (mode === 'anthropic') console.log('Live evaluation: changed source files of each scenario are sent to the Anthropic API.\n');
+if (provider) console.log(`Live evaluation: changed source files of each scenario are sent to ${provider.endpoint} (${provider.model}).\n`);
 
 // Approximate list prices in USD per million tokens, from the provider's published pricing on 2026-09-25.
 const PRICES: Record<string, [number, number]> = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-4-5': [1, 5] };
@@ -32,7 +41,7 @@ const rows: string[] = [];
 
 for (const s of listScenarios().filter((x) => x.expected.semantic)) {
   const started = performance.now();
-  const run = await runScenario(s.id, { semantic: mode });
+  const run = await runScenario(s.id, { semantic: provider ?? mode });
   const ms = Math.round(performance.now() - started);
   const engine = run.report.engines.find((e) => e.engine === 'semantic');
   const sem = run.report.semantic;
@@ -57,7 +66,7 @@ for (const s of listScenarios().filter((x) => x.expected.semantic)) {
 }
 
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : 'n/a');
-console.log(`Semantic evaluation (${mode})\n`);
+console.log(`Semantic evaluation (${provider ? `${provider.name}: ${provider.model}` : mode})\n`);
 console.log('| Scenario | Engine | Labels hit | False alarms on clean code | Accepted / downgraded / rejected | Wall time |');
 console.log('|---|---|---|---|---|---|');
 console.log(rows.join('\n'));

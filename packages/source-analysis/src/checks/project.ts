@@ -3,7 +3,7 @@ import type { Evidence, FindingDraft } from '@design-warden/core';
 import { z } from 'zod';
 import { defineCheck, type SourceProject } from '../check.ts';
 import { snippetAt } from '../parse.ts';
-import { createTokenSet, readTokenDefs } from '../tokens.ts';
+import { createTokenSet, readTokenDefs, type TokenSet } from '../tokens.ts';
 
 const reaction = z.enum(['review', 'notice', 'off']);
 
@@ -74,25 +74,30 @@ export const sharedChange = defineCheck({
       const line = change.changedLines[0]?.start ?? 1;
       const location = { file: target.path, line: Math.min(line, target.lines.length) };
       if (project.tokenFiles.has(target.path)) {
-        // Compare resolved values, so a changed primitive also reports every semantic token that aliases it.
-        const resolved = (css: string) => {
-          const set = createTokenSet(readTokenDefs(target.path, css), []);
-          return new Map([...set.defs.keys()].map((n) => [n, set.resolve(n) ?? set.defs.get(n)!.value]));
-        };
-        const before = resolved((await project.readBase(change.previousPath ?? target.path)) ?? '');
-        const after = resolved(target.text);
+        // Every token in every theme, as resolved values: a changed primitive also reports every semantic token that aliases
+        // it, and a theme override (`.dark { --palette-bg }`) every token built on it in that theme.
+        const before = createTokenSet(readTokenDefs(target.path, (await project.readBase(change.previousPath ?? target.path)) ?? ''), []);
+        const after = createTokenSet(readTokenDefs(target.path, target.text), []);
+        const themes = [...new Set([before, after].flatMap((set) => [...set.defs.keys()].flatMap((n) => set.definitions(n).flatMap((d) => (d.selector === undefined ? [] : [d.selector])))))];
         const evidence: Evidence[] = [];
-        let affected = 0;
-        let brokenRefs = 0;
-        for (const name of new Set([...before.keys(), ...after.keys()])) {
-          const [b, a] = [before.get(name) ?? null, after.get(name) ?? null];
-          if (b === a) continue;
-          const usages = tokenUsages(project, name);
-          affected += usages.length;
-          if (a === null && usages.length) brokenRefs += usages.length;
-          evidence.push({ kind: 'token-change', token: name, before: b, after: a, usages: usages.slice(0, ctx.options.maxUsagesListed) });
+        const usages = new Map<string, string[]>(); // per token: one project scan, one count, however many themes changed
+        const removed = new Set<string>();
+        for (const name of new Set([...before.defs.keys(), ...after.defs.keys()])) {
+          // A token with no definition left breaks its references; removing one theme's override leaves the others in force.
+          if (!after.defs.has(name)) removed.add(name);
+          for (const selector of [undefined, ...themes]) {
+            // A theme is listed only where it gives the token its own value, directly or through an alias, in either version.
+            const own = (set: TokenSet) => selector === undefined || valueIn(set, name, selector) !== valueIn(set, name);
+            if (!own(before) && !own(after)) continue;
+            const [b, a] = [valueIn(before, name, selector), valueIn(after, name, selector)];
+            if (b === a) continue;
+            if (!usages.has(name)) usages.set(name, tokenUsages(project, name));
+            evidence.push({ kind: 'token-change', token: name, ...(selector !== undefined && { selector }), before: b, after: a, usages: usages.get(name)!.slice(0, ctx.options.maxUsagesListed) });
+          }
         }
         if (!evidence.length) continue;
+        const affected = [...usages.values()].reduce((n, u) => n + u.length, 0);
+        const brokenRefs = [...removed].reduce((n, name) => n + usages.get(name)!.length, 0);
         out.push({
           ruleId: ctx.ruleId,
           check: 'shared-change',
@@ -102,7 +107,7 @@ export const sharedChange = defineCheck({
           engine: 'source',
           location,
           message:
-            `${evidence.length} design token(s) changed in ${target.path}, affecting ${affected} usage(s).` +
+            `${usages.size} design token(s) changed in ${target.path}, affecting ${affected} usage(s).` +
             (brokenRefs ? ` ${brokenRefs} usage(s) reference removed tokens and will break.` : ''),
           evidence,
         });
@@ -130,6 +135,12 @@ export const sharedChange = defineCheck({
     return out;
   },
 });
+
+/** A token's value in a theme (the default without one): resolved, or as written when it refers outside this file. */
+function valueIn(set: TokenSet, name: string, selector?: string): string | null {
+  const defs = set.definitions(name);
+  return set.resolve(name, selector) ?? (defs.find((d) => d.selector === selector) ?? defs.find((d) => d.selector === undefined))?.value ?? null;
+}
 
 /** Repository search for var(--name) references outside the token sources, as "file:line". */
 function tokenUsages(project: SourceProject, name: string): string[] {

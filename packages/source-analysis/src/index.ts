@@ -16,10 +16,10 @@ import type { SourceCheck, SourceProject } from './check.ts';
 import { componentChecks } from './checks/components.ts';
 import { patternProvenance, projectChecks } from './checks/project.ts';
 import { styleChecks } from './checks/style.ts';
-import { componentDefinitions, globalComponents, importsOf, jsxUsages, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
+import { componentDefinitions, globalComponents, importsOf, jsxUsages, makeComponentAt, makeDsMatcher, type ComponentDefinition, type ImportBinding, type JsxUsage } from './jsx.ts';
 import { fileKind, parseFile, type ParsedFile } from './parse.ts';
 import { computeProvenance, type ProvenanceOptions } from './provenance.ts';
-import { detectTailwind, indexClasses, type StyleRule } from './style-values.ts';
+import { customProperties, detectTailwind, indexClasses, type CustomProperties, type StyleRule } from './style-values.ts';
 import { createTokenSet, readTokenDefs } from './tokens.ts';
 
 const MAX_FILE_CHARS = 2_000_000;
@@ -75,6 +75,7 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
   );
 
   const isDs = makeDsMatcher(policy.designSystem.importSources);
+  const componentAt = makeComponentAt(policy.components);
   const memo = <T>(fn: (f: ParsedFile) => T) => {
     const cache = new Map<string, T>();
     return (f: ParsedFile) => {
@@ -82,17 +83,18 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
       return cache.get(f.path)!;
     };
   };
-  const imports = memo((f): ImportBinding[] => importsOf(f, isDs));
+  const imports = memo((f): ImportBinding[] => importsOf(f, isDs, componentAt));
   // Vue resolves template tags against global registrations too (`app.component(…)`, usually in main.ts).
   const globals = new Map<string, ImportBinding>();
   if ([...files.values()].some((f) => f.kind === 'vue')) for (const f of files.values()) for (const [name, b] of globalComponents(f, imports(f))) globals.set(name, b);
-  const usagesOf = (f: ParsedFile): JsxUsage[] => jsxUsages(f, importsOf(f, isDs), globals);
+  const usagesOf = (f: ParsedFile): JsxUsage[] => jsxUsages(f, importsOf(f, isDs, componentAt), globals);
   const usages = memo((f): JsxUsage[] => jsxUsages(f, imports(f), globals));
   let classes: Map<string, StyleRule[]> | undefined; // built on first use: only palette classes and visual changes need it
   const styledBy = (className: string) => (classes ??= indexClasses(files.values())).get(className) ?? [];
   let tailwind: boolean | undefined;
   const usesTailwind = () => (tailwind ??= detectTailwind(files.values(), () => read('package.json')));
   const definitions = memo((f): ComponentDefinition[] => componentDefinitions(f, usages(f)));
+  let custom: CustomProperties | undefined;
 
   const project: SourceProject = {
     policy,
@@ -100,13 +102,14 @@ export async function analyzeSource(input: SourceAnalysisInput): Promise<SourceA
     tokenFiles,
     files,
     componentsByName: new Map(policy.components.map((c) => [c.name, c])),
-    isDs,
     inDesignSystem: (file) => matchesAny(file, policy.designSystem.paths),
     usages,
+    imports,
     usagesOf,
     styledBy,
     usesTailwind,
     definitions,
+    customProperties: () => (custom ??= customProperties(files.values())),
     changes,
     readBase: input.readBase,
     provenance: [],

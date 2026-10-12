@@ -16,7 +16,7 @@ Some design guidance needs judgment: one primary action per view, whether a new 
 - **Contract.** `SemanticProvider { name, model, endpoint, supportsImages, review(request, signal) }` transports a prepared request and returns raw text. The orchestrator does all validation identically for every provider.
 - **Providers:**
   - `anthropic`: official SDK, `client.beta.messages.stream`, `output_config.format` JSON schema, `effort: high`, server-side `fallbacks: "default"`, one SDK retry.
-  - `openai-compatible`: plain `fetch` to `/chat/completions` with `response_format: json_schema`. Covers OpenAI, Ollama, vLLM and LM Studio.
+  - `openai-compatible`: a `node:http`/`node:https` POST to `/chat/completions` with `response_format: json_schema`. Covers OpenAI, Ollama, vLLM and LM Studio. (Amended 2026-10-12: it used `fetch`, whose 300 s headers timeout cut off slow local models whatever the caller's time limit. Redirects are not followed, so the key is never sent to another URL.)
   - `replay`: a recorded response, no network, used by tests and the demo.
 - **Configuration.** Off unless `--semantic <provider>` is passed and `semanticReview.enabled` is true in the policy. Provider, model, endpoint and credentials come from CLI flags and environment, never from the policy file, so a pull request cannot redirect code or keys to another endpoint.
 - **Input.** Only changed files in scope, capped by `maxFiles` and `maxFileChars`, prioritised by novel provenance and existing findings.

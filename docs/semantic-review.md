@@ -26,6 +26,11 @@ pnpm design-warden check --policy … --base origin/main --semantic openai-compa
 
 Ollama ignores `strict` in JSON-schema mode, so local validation is what keeps the output well-formed ([research](research/ai-review.md)).
 
+- **Context length.** Ollama loads a model with a short context unless told otherwise: on a 6 GB GPU it loaded qwen3:8b with 4,096 tokens (2026-10-12, `/api/ps`). A review request for a small change is already about 5,500 tokens, and Ollama cuts a longer prompt instead of failing, so the model may never see the instructions or the changed files. Start Ollama with a larger context, for example `OLLAMA_CONTEXT_LENGTH=16384 ollama serve`, or use a model variant with `PARAMETER num_ctx 16384`. The OpenAI-compatible endpoint has no per-request setting for it.
+- **Slow answers.** A local model on a laptop can take minutes. Raise `--semantic-timeout`: the request has no other time limit.
+- **Redirects** are not followed: a 3xx answer is reported as `bad-request`, so the request, and the key with it, never goes to another URL.
+- **Credentials in the base URL** (`https://user:pass@host/v1`) are refused and left out of the endpoint shown in reports; use `DESIGN_WARDEN_OPENAI_API_KEY`. An answer larger than 8 MB is cut off and reported as a failure. (Node's `fetch` gives up on a response that takes more than 300 seconds to start, whatever the timeout; the provider does not use it, since 2026-10-12.)
+
 **Other services.** A hosted service that documents an OpenAI-compatible chat-completions endpoint with JSON-schema output is used the same way: set `DESIGN_WARDEN_OPENAI_BASE_URL` and the key. Examples are Azure OpenAI's v1 endpoint, Google's OpenAI-compatible Gemini endpoint and OpenRouter. **None of them was tested here.** Services differ in which JSON-schema keywords they honour under `strict` (open question 4), so local validation decides what counts, as with Ollama. A provider without such an endpoint needs an adapter in `packages/semantic-review/src/providers/`, the only code that calls model providers.
 
 ## What is sent
@@ -79,4 +84,4 @@ If changed files had to be left out because of `maxFiles`, the engine is `incomp
 - reference rejection and downgrade rates;
 - tokens and estimated cost.
 
-It sends the demo's changed files to the provider and costs money. Without `--provider`, it uses the recorded responses and only checks the pipeline. See [evaluation.md](evaluation.md).
+It sends the demo's changed files to the provider and costs money. `--provider openai-compatible --model <id>` evaluates any Chat Completions server instead, by default a local Ollama at `http://127.0.0.1:11434/v1` (`--base-url` or `DESIGN_WARDEN_OPENAI_BASE_URL` to change it): free, and nothing leaves the machine. Without `--provider`, it uses the recorded responses and only checks the pipeline. See [evaluation.md](evaluation.md).

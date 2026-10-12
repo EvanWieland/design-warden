@@ -109,7 +109,7 @@ Providers transport a prepared request; they never interpret output. Adding one 
 ## Extension points
 
 - **New check:** `defineCheck` in `source-analysis/src/checks/` (skill `add-design-rule`).
-- **New file type or framework:** extend `parse.ts` (`fileKind`, `parseFile`). Checks consume `StyleValue`s and `JsxUsage`s. For a template language, write an adapter that returns `TemplateParts` (`templates.ts`): elements with Babel-like attribute values (string literals, or expressions parsed at their file position), style blocks, and the script text with the rest of the file blanked. `vue.ts` and `svelte.ts` are the examples.
+- **New file type or framework:** extend `parse.ts` (`fileKind`, `parseFile`). Checks consume `StyleValue`s and `JsxUsage`s. For a template language, write an adapter that returns `TemplateParts` (`templates.ts`): elements with Babel-like attribute values (string literals, or expressions parsed at their file position), style blocks, and the script text with the rest of the file blanked. An element's `endLine` is the last line of its opening tag (`openTagEnd`), and `propsEndLine` marks where props can still be given when its content passes them (Svelte snippets); the component's span, `parts.endLine`, comes from the markup, never from the elements' `endLine`. `vue.ts` and `svelte.ts` are the examples.
 - **New token source:** produce `TokenDef[]`, as `parseTokenDefs` (CSS) and `parseDtcgTokens` (DTCG JSON) do in `tokens.ts`.
 - **New report format:** a function `Report → string` beside `reporters/markdown.ts`, as `reporters/sarif.ts` and `reporters/gitlab.ts` are.
 - **New provider:** see above.

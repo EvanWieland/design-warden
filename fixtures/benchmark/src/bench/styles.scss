@@ -26,3 +26,7 @@ $brand-pink: #db2777; /* @expect color/semantic-tokens */
   &:hover { background: #f1f5f9 !important; } /* @expect color/semantic-tokens @expect styles/no-important */
   @include button-variant(#be123c, 10px); /* @expect color/semantic-tokens @expect spacing/scale @expect typography/scale */
 }
+
+// A Sass keyword argument is an argument, not a $variable (Excalidraw trial, 2026-10-12).
+@use 'sass:color';
+.overlay { background: color.adjust(#ffffff, $alpha: -0.75); } // @expect color/semantic-tokens

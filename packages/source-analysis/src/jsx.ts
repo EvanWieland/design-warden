@@ -1,13 +1,15 @@
 import path from 'node:path';
 import type { JSXAttribute, JSXOpeningElement, Node } from '@babel/types';
 import { lineOf, walk, type ParsedFile } from './parse.ts';
-import { pascal, templateDefinition, templateUsages } from './templates.ts';
+import { dsName, pascal, templateDefinition, templateUsages } from './templates.ts';
 
 export interface ImportBinding {
   local: string;
   imported: string; // "default" or "*" for default/namespace imports
   source: string;
   isDesignSystem: boolean;
+  /** The registry component whose file the import names (`import Btn from "./Button"`), whatever its local name. */
+  component?: string;
 }
 
 export type Resolved =
@@ -19,12 +21,17 @@ export type Resolved =
 export interface JsxUsage {
   resolved: Resolved;
   line: number;
+  /** Last line of the opening tag: a finding about the element (its tag and attributes) does not span its children. */
   endLine: number;
+  /** Last line where props can be given, when the content also passes props (a Svelte component's snippets). */
+  propsEndLine?: number;
   /** Attribute name -> value node, or true for shorthand boolean attributes. */
   attributes: Map<string, JSXAttribute['value'] | true>;
   hasSpread: boolean;
   /** The JSX element this one is nested in (through expressions too), for tree shape. */
   parent?: JsxUsage;
+  /** The component this element is handed to (`render={<a />}`, the child of `asChild`), which renders it with its own styles and behaviour. */
+  composedInto?: Resolved;
 }
 
 export interface ComponentDefinition {
@@ -37,6 +44,8 @@ export interface ComponentDefinition {
 }
 
 export type DsMatcher = (fromFile: string, specifier: string) => boolean;
+/** The registry component a relative import specifier names by its file, if any. */
+export type ComponentAt = (fromFile: string, specifier: string) => string | undefined;
 
 /** Import specifiers count as design-system imports when they match a package name or resolve into a design-system path. */
 export function makeDsMatcher(importSources: readonly string[]): DsMatcher {
@@ -45,17 +54,34 @@ export function makeDsMatcher(importSources: readonly string[]): DsMatcher {
     spec.startsWith('.') ? under(path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), spec))) : under(spec);
 }
 
-export function importsOf(file: ParsedFile, isDs: DsMatcher): ImportBinding[] {
+/** A relative import names a registry component by its file: with or without the extension, or its folder for an index file. */
+export function makeComponentAt(components: readonly { name: string; source: string }[]): ComponentAt {
+  const byFile = new Map<string, string>();
+  for (const c of components) {
+    const stem = c.source.replace(/\.\w+$/, '');
+    for (const p of [c.source, stem, ...(path.posix.basename(stem) === 'index' ? [path.posix.dirname(stem)] : [])]) if (!byFile.has(p)) byFile.set(p, c.name);
+  }
+  return (fromFile, spec) => {
+    if (!spec.startsWith('.')) return undefined;
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), spec));
+    // ESM TypeScript imports name the compiled file: `./Button.js` is `Button.tsx`.
+    return byFile.get(target) ?? byFile.get(target.replace(/\.[mc]?jsx?$/, ''));
+  };
+}
+
+export function importsOf(file: ParsedFile, isDs: DsMatcher, componentAt: ComponentAt): ImportBinding[] {
   if (!file.ast) return [];
   const out: ImportBinding[] = [];
   for (const stmt of file.ast.program.body) {
     if (stmt.type !== 'ImportDeclaration' || stmt.importKind === 'type') continue;
     const source = stmt.source.value;
-    const isDesignSystem = isDs(file.path, source);
+    // A registered component's own file is part of the design system, whatever importSources lists.
+    const component = componentAt(file.path, source);
+    const isDesignSystem = isDs(file.path, source) || component !== undefined;
     for (const s of stmt.specifiers) {
       const imported =
         s.type === 'ImportSpecifier' ? (s.imported.type === 'Identifier' ? s.imported.name : s.imported.value) : s.type === 'ImportDefaultSpecifier' ? 'default' : '*';
-      out.push({ local: s.local.name, imported, source, isDesignSystem });
+      out.push({ local: s.local.name, imported, source, isDesignSystem, ...(imported === 'default' && component && { component }) });
     }
   }
   return out;
@@ -106,6 +132,7 @@ export function jsxUsages(file: ParsedFile, imports: ImportBinding[], globals?: 
     const parent = ancestors[ancestors.length - 1];
     let enclosing: JsxUsage | undefined;
     for (let i = ancestors.length - 2; i >= 0 && !enclosing; i--) enclosing = byElement.get(ancestors[i]!);
+    const host = composedHost(ancestors);
     const attributes = new Map<string, JSXAttribute['value'] | true>();
     let hasSpread = false;
     for (const a of node.attributes) {
@@ -115,14 +142,23 @@ export function jsxUsages(file: ParsedFile, imports: ImportBinding[], globals?: 
     out.push({
       resolved: resolveTag(node, byLocal, definedHere, file),
       line: lineOf(node),
-      endLine: parent?.loc?.end.line ?? lineOf(node),
+      endLine: node.loc?.end.line ?? lineOf(node),
       attributes,
       hasSpread,
       parent: enclosing,
+      ...(host && { composedInto: resolveTag(host, byLocal, definedHere, file) }),
     });
     if (parent) byElement.set(parent, out[out.length - 1]!);
   });
   return out;
+}
+
+/** The opening element of the component an element is handed to: a `render={<a />}` prop value, or the direct child of an `asChild` element. */
+function composedHost(ancestors: readonly Node[]): JSXOpeningElement | undefined {
+  const [owner, attr, holder] = [ancestors.at(-4), ancestors.at(-3), ancestors.at(-2)];
+  if (holder?.type === 'JSXExpressionContainer' && attr?.type === 'JSXAttribute' && attr.name.type === 'JSXIdentifier' && attr.name.name === 'render' && owner?.type === 'JSXOpeningElement') return owner;
+  if (holder?.type === 'JSXElement' && holder.openingElement.attributes.some((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && a.name.name === 'asChild')) return holder.openingElement;
+  return undefined;
 }
 
 function resolveTag(node: JSXOpeningElement, byLocal: Map<string, ImportBinding>, definedHere: Set<string>, file: ParsedFile): Resolved {
@@ -130,13 +166,14 @@ function resolveTag(node: JSXOpeningElement, byLocal: Map<string, ImportBinding>
   if (n.type === 'JSXIdentifier') {
     if (!isPascal(n.name)) return { kind: 'intrinsic', element: n.name };
     const imp = byLocal.get(n.name);
-    if (imp?.isDesignSystem) return { kind: 'design-system', component: imp.imported === 'default' ? n.name : imp.imported };
+    if (imp?.isDesignSystem) return { kind: 'design-system', component: dsName(imp) };
     if (imp || definedHere.has(n.name)) return { kind: 'component', name: n.name };
     return { kind: 'dynamic', expression: n.name };
   }
   if (n.type === 'JSXMemberExpression' && n.object.type === 'JSXIdentifier') {
     const imp = byLocal.get(n.object.name);
-    if (imp?.isDesignSystem && imp.imported === '*') return { kind: 'design-system', component: n.property.name };
+    // <DS.Badge> through a namespace import; <Card.Header> is a part of a compound design-system component.
+    if (imp?.isDesignSystem) return { kind: 'design-system', component: imp.imported === '*' ? n.property.name : `${dsName(imp)}.${n.property.name}` };
     return { kind: 'component', name: `${n.object.name}.${n.property.name}` };
   }
   return { kind: 'dynamic', expression: file.text.slice(n.start ?? 0, n.end ?? 0) };
@@ -193,8 +230,14 @@ function topLevelFunctions(file: ParsedFile): { name: string; node: Node }[] {
   return out;
 }
 
-/** Elements that carry no structural meaning and would make unrelated components look alike. */
-const GENERIC = new Set(['div', 'span', 'p', 'br', 'strong', 'em', 'b', 'i', 'small']);
+/**
+ * Elements that carry no structural meaning and would make unrelated components look alike: generic containers,
+ * inline text and direction wrappers, and inline SVG drawing (an icon is not a layout).
+ */
+const GENERIC = new Set([
+  ...['div', 'span', 'p', 'br', 'strong', 'em', 'b', 'i', 'small', 'bdi', 'bdo', 'wbr'],
+  ...['svg', 'g', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'defs', 'clipPath', 'mask', 'use', 'symbol', 'stop', 'linearGradient', 'radialGradient', 'title'],
+]);
 
 export function features(usages: JsxUsage[]): Set<string> {
   const out = new Set<string>();

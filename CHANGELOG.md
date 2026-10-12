@@ -7,10 +7,34 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - A release workflow with npm trusted publishing. Pushing a version tag runs the full checks and publishes the five packages, with no npm token stored and no 2FA approval. Run by hand, it only checks that npm trusts it. CONTRIBUTING.md documents the release steps, and a repo test keeps the version pins in the docs current.
+- `token-usage` option `external`: custom properties that libraries set at runtime (`--radix-`, `--available-height`), as prefixes or names.
+- `pnpm eval:semantic --provider openai-compatible --model <id>`: evaluates a local model (Ollama by default) or any Chat Completions server.
+- Token sources may be SCSS files of CSS custom properties. Theme and breakpoint overrides (`.dark { … }`, `@media … { :root { … } }`) are read as themes: the default value comes from `:root` (or `html`, `:host`, `@theme`), `shared-change` reports changed overrides with their selector (`selector` in the evidence), and `token-usage` suggests a replacement only when it has the same value in every theme.
+- The terminal report totals findings by rule when it lists more than ten. `--help` works after a command (`design-warden check --help`).
+
+### Changed
+
+These come from running Design Warden on Excalidraw, VitePress and shadcn/ui ([evaluation.md](docs/evaluation.md#2a-real-world-trials-2026-10-12)).
+
+- `token-usage` accepts a custom property defined anywhere in the project, not only in the same file: in CSS and SCSS, inline styles and style objects, Tailwind arbitrary properties (also in `@apply`), `@property`, `style.setProperty`, and CSS text in template literals. A reference with a fallback is not reported unless its name has a token prefix, and a name built at runtime from a family outside the token prefixes (`--chart-${key}`) is not reported; inside a token prefix (`--color-${key}`) it is insufficient evidence. A name one or two edits from a token is always reported. Names an SCSS token source generates (`--radius-#{$name}`) count as tokens.
+- `raw-element` and `component-props` findings span the element's opening tag instead of the whole element, so changing a child no longer makes the untouched element a new finding (deleting its first child still does). In Svelte, a missing required prop spans the component's whole element, because a snippet in its content can pass it. The fingerprints of these findings on multi-line elements change, so approvals of them must be renewed.
+- A raw element handed to a registry component that replaces raw elements (`<Button asChild><a>`, a `render={<a />}` prop) is not reported by `raw-element`; one handed to a component that only adds behaviour (`DialogTrigger`) still is.
+- `duplicate-component` counts composition through another component of the same file, a part of the component (`<Card.Header>`), or a design-system component named like it (`IconButton` for `Button`).
+- A default import of a registered component's file resolves to that component whatever its local name (also written `./Button.js`), and a member of a design-system import is a part of a compound component.
+- Provenance ignores inline SVG drawing and text-direction wrappers (`bdi`), which made unrelated components look alike.
+- Suggestions: a spacing step a third or more away is no longer offered as the "nearest step" (8px was offered a 4px token), and a color with no token for its role is matched to a role-neutral token before one named for another role.
 
 ### Fixed
 
 - A sentence in ci-integration.md sat inside the GitLab job's YAML block, which made the example invalid.
+- An SCSS token source stopped the source engine at its first `//` comment. A token source that cannot be read is now reported by its project path, not an absolute one, and the terminal report no longer prints "No findings." above an engine error.
+- `no-hardcoded-color` read colors built from tokens (`rgb(from var(--x) …)`, `hsl(var(--h) …)`) as hardcoded, named colors passed to the project's own or design-system components (`<Card color="lime">`) as CSS colors, fills inside `<clipPath>` and `<mask>`, and computed `stroke-dasharray`, `stroke-width` and `border-radius` as colors. It missed literals in conditional style objects (`busy ? { … } : undefined`), custom property keys written with a cast (`['--x' as any]`), and colors in Sass calls with keyword arguments (`color.adjust(#fff, $alpha: -0.75)`).
+- Tailwind: the palettes added in Tailwind 4.2 (`taupe`, `mauve`, `mist`, `olive`), class strings under `className` keys of objects (`toastOptions={{ className: … }}`) and math without spaces (`p-[calc(13px+2px)]`) were not read.
+- `policy test` counted findings in the token sources against a rule's examples.
+- `capture --serve` answered clean URLs (`/guide/intro` for `guide/intro.html` or `guide/intro/index.html`) with the root page, so static sites such as VitePress captured the wrong page. Every candidate path is checked by `resolveInside`, symlinks included.
+- `no-hardcoded-color` reads named colors in `filter: drop-shadow(…)` and `bgcolor`, and Svelte style props (`<Slider --track-color="black">`) as inline styles. A token defined only in a theme (only in `.dark`) has no default value, so no suggestion claims it.
+- From the security review of these changes: the style checks read literal values set from script (`el.style.setProperty('--brand', '#39ff14')`, `el.style.color = 'red'`), since a custom property set that way now counts as defined; the OpenAI-compatible provider refuses credentials written into the base URL (they were printed with the endpoint) and stops reading an answer larger than 8 MB; two regular expressions that took quadratic time on long runs of dashes in a template are linear; `-h` as the value of an option is no longer read as a request for help; and under one selector a token source's last definition applies, as in CSS, while `*` counts as a theme, not the default.
+- The OpenAI-compatible provider used `fetch`, which gives up after 300 s without response headers whatever `--semantic-timeout` says, so slow local models always failed. It now posts with `node:http`/`node:https`, and a response that is not JSON is reported as such.
 
 ## [0.2.0] - 2026-10-11
 

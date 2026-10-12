@@ -514,6 +514,7 @@ function EvidenceList(props: { evidence: Evidence[]; live: boolean; onCapture?: 
                 <tr key={i}>
                   <td>
                     <code>{t.token}</code>
+                    {t.selector && <> in <code>{t.selector}</code></>}
                   </td>
                   <td>
                     <code>{t.before ?? '(new)'}</code> → <code>{t.after ?? '(removed)'}</code>

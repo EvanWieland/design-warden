@@ -30,7 +30,8 @@ export async function testPolicyExamples(loaded: LoadedPolicy): Promise<ExampleR
         continue;
       }
       const { drafts } = await analyzeSource({ loaded, virtualFiles: [{ path: ex.file, text: ex.code }], onlyRules: [rule.id] });
-      const hits = drafts.filter((d) => d.ruleId === rule.id && d.verdict !== 'notice' && !d.inlineSuppression);
+      // Only the example's own findings: the token sources are analyzed too, and may break the rule themselves.
+      const hits = drafts.filter((d) => d.ruleId === rule.id && d.location?.file === ex.file && d.verdict !== 'notice' && !d.inlineSuppression);
       const ok = ex.expect === 'fail' ? hits.length > 0 : hits.length === 0;
       results.push({ ...base, ok, detail: hits.length ? hits.map((h) => h.message).join(' | ') : 'no findings' });
     }

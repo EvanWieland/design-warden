@@ -4,7 +4,7 @@ import scss from 'postcss-scss';
 import valueParser from 'postcss-value-parser';
 import { lineOf, walk, type ParsedFile } from './parse.ts';
 import { arbitraryValue, themeColor } from './tailwind.ts';
-import { positions, type PositionOf } from './templates.ts';
+import { pascal, positions, type PositionOf, type TemplateElement } from './templates.ts';
 
 /** One place where a style value is set: a CSS declaration, a JSX style property, a color-like JSX prop or a Tailwind arbitrary value. */
 export interface StyleValue {
@@ -29,15 +29,29 @@ export interface StyleValue {
   lead?: string;
   /** CSS declaration marked `!important`. PostCSS keeps the flag out of `value`, and never sets it for comments or strings. */
   important?: boolean;
+  /** For `jsx-prop`: the local name of the component the prop is passed to, where a word such as `lime` may be a variant name, not a CSS color. */
+  onComponent?: string;
 }
 
-const COLOR_PROP = /colou?r|fill|stroke|background/i;
+/** Props that take a color: `color`, `fill`, `stroke`, `background`, `bg`, `bgcolor`, and `*Color` / `*-color` (`stopColor`, `stop-color`). */
+const COLOR_PROP = /^(?:colou?r|fill|stroke|background|bg|bgcolor|[a-zA-Z]+Colou?r|[a-z]+(?:-[a-z]+)*-colou?r)$/;
+/** SVG elements whose content only shapes what is drawn: their fills are masks, not colors. */
+const SHAPE_ONLY = new Set(['clipPath', 'mask']);
+
+/** The element an attribute sits on: a component (by its local name; its props are its API), or an element inside a clip path or mask. */
+interface Host {
+  component?: string;
+  shapeOnly: boolean;
+}
 
 /** A Sass value that depends on a `$variable` or `#{}` interpolation, which only the Sass compiler resolves. */
 function sassDynamic(value: string): boolean {
   let dynamic = false;
-  valueParser(value).walk((n) => {
-    if (n.type === 'word' && (n.value.includes('$') || n.value.includes('#{'))) dynamic = true;
+  valueParser(value).walk((n, i, nodes) => {
+    if (n.type !== 'word' || !(n.value.includes('$') || n.value.includes('#{'))) return;
+    // `$alpha` in `color.adjust(#fff, $alpha: -0.75)` names a keyword argument; it is not a variable.
+    if (/^\$[\w-]+$/.test(n.value) && nodes[i + 1]?.type === 'div' && nodes[i + 1]!.value === ':') return;
+    dynamic = true;
   });
   return dynamic;
 }
@@ -50,7 +64,63 @@ const offsetPosition = (file: ParsedFile): PositionOf => {
   return p;
 };
 
+const valuesOf = new WeakMap<ParsedFile, StyleValue[]>();
+/** Every style value a file sets, read once per file (several checks and the custom-property index ask). */
 export function styleValues(file: ParsedFile): StyleValue[] {
+  let v = valuesOf.get(file);
+  if (!v) valuesOf.set(file, (v = readStyleValues(file)));
+  return v;
+}
+
+/** Custom properties the project defines: names written out, and the families of names built at runtime, each with a file that builds it. */
+export interface CustomProperties {
+  names: Set<string>;
+  families: Map<string, string>;
+}
+
+/**
+ * Custom properties defined in these files: declarations, inline style keys and `[--x:…]` classes,
+ * `el.style.setProperty('--x', …)`, `@property`, and CSS text in template literals. A name built at runtime
+ * (`--color-${key}: …`, `[`--tone-${k}`]`, `setProperty(`--x-${k}`)`) contributes its static prefix.
+ */
+export function customProperties(files: Iterable<ParsedFile>): CustomProperties {
+  const names = new Set<string>();
+  const families = new Map<string, string>();
+  for (const file of files) {
+    // Only a name family (`--color-`) counts as a prefix: `--c${key}` would otherwise excuse every name starting with --c.
+    const family = (p: string) => void (/^--[\w-]*\w-$/.test(p) && !families.has(p) && families.set(p, file.path));
+    for (const sv of styleValues(file)) {
+      if (sv.definesCustomProperty) (sv.property.endsWith('*') ? family(sv.property.slice(0, -1)) : names.add(sv.property));
+    }
+    for (const root of [file.css, ...(file.template?.styles ?? []).map((s) => s.root)]) {
+      // Tailwind's `@apply p-3 [--cell-radius:var(--radius-4xl)]` defines one through an arbitrary property.
+      root?.walkAtRules('apply', (a) => {
+        for (const cls of a.params.split(/\s+/)) if (arbitraryValue(cls)?.property.startsWith('--')) names.add(arbitraryValue(cls)!.property);
+      });
+      root?.walkAtRules('property', (a) => void (a.params.trim().startsWith('--') && names.add(a.params.trim())));
+    }
+    if (!file.ast) continue;
+    walk(file.ast.program, (n) => {
+      if (n.type === 'CallExpression' && n.callee.type === 'MemberExpression' && n.callee.property.type === 'Identifier' && n.callee.property.name === 'setProperty') {
+        const arg = n.arguments[0];
+        if (arg?.type === 'StringLiteral' && arg.value.startsWith('--')) names.add(arg.value);
+        if (arg?.type === 'TemplateLiteral' && arg.expressions.length) family(arg.quasis[0]?.value.cooked ?? '');
+      }
+      if (n.type !== 'TemplateLiteral') return;
+      n.quasis.forEach((q, i) => {
+        const text = q.value.cooked ?? '';
+        // A name starts where a run of word characters and dashes starts, so a long run is scanned once, not from every dash.
+        for (const m of text.matchAll(/(?<![\w-])(--[\w-]+)\s*:/g)) names.add(m[1]!);
+        // `--color-${key}: …` defines a name with this prefix; `var(--color-${key})` only references one.
+        const open = /(?<![\w-])(?<!var\(\s*)(--[\w-]+)$/.exec(text);
+        if (open && /^[\w-]*\s*:/.test(n.quasis[i + 1]?.value.cooked ?? '')) family(open[1]!);
+      });
+    });
+  }
+  return { names, families };
+}
+
+function readStyleValues(file: ParsedFile): StyleValue[] {
   if (file.css) return declarationValues(file.css, { file, origin: 0, sass: file.path.endsWith('.scss'), source: 'css' });
   if (!file.ast) return [];
   const out: StyleValue[] = [];
@@ -98,7 +168,7 @@ export function styleValues(file: ParsedFile): StyleValue[] {
     }
   };
   /** One attribute of a JSX element or a template element (string literal or expression container). */
-  const attribute = (name: string, value: Node | null | undefined) => {
+  const attribute = (name: string, value: Node | null | undefined, host: Host) => {
     if (!value) return;
     const expr = value.type === 'JSXExpressionContainer' && value.expression.type !== 'JSXEmptyExpression' ? unwrap(value.expression) : null;
     if (name === 'className' || name === 'class' || /ClassName$/.test(name)) {
@@ -109,24 +179,38 @@ export function styleValues(file: ParsedFile): StyleValue[] {
       // style="color: red; padding: {gap}px" (Svelte), :style="`…${x}…`" (Vue): read the static declarations.
       out.push(...templateCss(file, expr, 'jsx-style', { lead: `Inline style \`${source(file, expr)}\` could not be parsed as CSS`, offset: expr.start ?? 0 }, postcss));
     } else if (name === 'style' && expr) {
-      // A lookup is read only when every value it can return is a style object written here (an empty map is filled elsewhere).
+      // Read when every value it can take is known: a style object written here, a same-file constant, a lookup whose
+      // values all are (an empty map is filled elsewhere), or nothing (`busy ? { … } : undefined`).
       const known = (v: Node) => v.type === 'ObjectExpression' || (v.type === 'Identifier' && objects.has(v.name));
-      const resolved = isLookup(expr, objects) && lookupValues(expr, objects).length > 0 && lookupValues(expr, objects).every(known);
-      if (known(expr) || resolved) objectsOf(expr, INLINE);
+      const readable = (b: Node) => known(b) || literalOf(b) === null || (isLookup(b, objects) && lookupValues(b, objects).length > 0 && lookupValues(b, objects).every(known));
+      if (branches(expr).every(readable)) objectsOf(expr, INLINE);
       else out.push(at(expr, { property: 'style', value: null, expression: source(file, expr), source: 'jsx-style', definesCustomProperty: false, wholeObject: true }));
     } else if ((name === 'css' || name === 'sx') && expr) {
       // Emotion's css prop and MUI's sx prop. css={css`…`} and css={css({…})} are read as the template or call they are.
       objectsOf(expr, name === 'sx' ? SX : CSS_IN_JS);
-    } else if (COLOR_PROP.test(name)) {
-      // Color-like props on any element or component, e.g. <Icon color="#fff" /> or fill={on ? '#000' : 'none'}.
+    } else if (name.startsWith('--')) {
+      // Svelte's `<Slider --track-color="black">` sets a custom property on the component's wrapper: a style, not a prop.
+      for (const c of expr ? branches(expr) : [value]) {
+        const lit = literalOf(c);
+        if (typeof lit === 'string') out.push(at(c, { property: name, value: lit, source: 'jsx-style', definesCustomProperty: true }));
+      }
+    } else if (COLOR_PROP.test(name) && !host.shapeOnly) {
+      // Color props on any element or component, e.g. <Icon color="#fff" /> or fill={on ? '#000' : 'none'}.
       // Only literal values are judged: passing a variable (often a token) through a prop is normal.
       for (const c of expr ? branches(expr) : [value]) {
         const lit = literalOf(c);
-        if (lit !== undefined && lit !== null) out.push(at(c, { property: name, value: lit, source: 'jsx-prop', definesCustomProperty: false }));
+        if (lit !== undefined && lit !== null) out.push(at(c, { property: name, value: lit, source: 'jsx-prop', definesCustomProperty: false, ...(host.component && { onComponent: host.component }) }));
       }
     }
   };
-  walk(file.ast.program, (node) => {
+  const scripted = (property: string, value: Node) => {
+    for (const b of branches(value)) {
+      const lit = literalOf(b);
+      if (typeof lit === 'string') out.push(at(b, { property, value: lit, source: 'jsx-style', definesCustomProperty: property.startsWith('--') }));
+    }
+  };
+  const jsxName = (n: Node | undefined) => (n?.type === 'JSXOpeningElement' ? n.name : n?.type === 'JSXElement' ? n.openingElement.name : undefined);
+  walk(file.ast.program, (node, ancestors) => {
     if (node.type === 'TaggedTemplateExpression' && isStyleTag(node.tag)) {
       out.push(...templateCss(file, node.quasi, 'css-in-js', { lead: `The \`${source(file, node.tag)}\` template could not be parsed as CSS`, offset: node.start ?? 0 }, scss));
       return;
@@ -141,10 +225,34 @@ export function styleValues(file: ParsedFile): StyleValue[] {
       variantClasses(node.arguments as Node[]);
       return;
     }
-    if (node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier') attribute(node.name.name, node.value);
+    if (node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier') {
+      const tag = jsxName(ancestors[ancestors.length - 1]);
+      // <Check> and <DS.Badge> are components, named by their import; <motion.path> wraps the element it names.
+      const root = tag?.type === 'JSXMemberExpression' ? (tag.object.type === 'JSXIdentifier' ? tag.object.name : undefined) : tag?.type === 'JSXIdentifier' ? tag.name : undefined;
+      const component = (tag?.type === 'JSXMemberExpression' ? /^[A-Z]/.test(tag.property.name) : /^[A-Z]/.test(root ?? '')) ? root : undefined;
+      const shapeOnly = ancestors.some((a) => {
+        const n = jsxName(a);
+        return n?.type === 'JSXIdentifier' && SHAPE_ONLY.has(n.name);
+      });
+      attribute(node.name.name, node.value, { component, shapeOnly });
+    }
+    // Class strings under className keys of objects: `toastOptions={{ className: '…' }}`, `{ dotClassName: '…' }`.
+    // cva() and tv() definitions are read above; their `class` keys are not read twice.
+    if (node.type === 'ObjectProperty' && !node.computed && node.key.type === 'Identifier' && /^className$|ClassName$/.test(node.key.name)) classes(unwrap(node.value as Node));
+    // Styles set from script: `el.style.setProperty('--brand', '#39ff14')`, `el.style.color = 'red'`. As for color props,
+    // only literal strings are judged; a custom property set this way counts as defined for token-usage.
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' && !node.callee.computed && node.callee.property.type === 'Identifier' && node.callee.property.name === 'setProperty') {
+      const [name, value] = node.arguments;
+      if (name?.type === 'StringLiteral' && /^(?:--[\w-]+|[a-z-]+)$/.test(name.value) && value) scripted(name.value, value as Node);
+    }
+    if (node.type === 'AssignmentExpression' && node.operator === '=' && node.left.type === 'MemberExpression' && !node.left.computed && node.left.property.type === 'Identifier') {
+      const owner = node.left.object;
+      if (owner.type === 'MemberExpression' && !owner.computed && owner.property.type === 'Identifier' && owner.property.name === 'style') scripted(node.left.property.name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`), node.right);
+    }
   });
   if (file.template) {
-    for (const el of file.template.elements) for (const a of el.attributes) if (a.value !== true) attribute(a.name, a.value);
+    const inShape = (el: TemplateElement | undefined): boolean => !!el && (SHAPE_ONLY.has(el.tag) || inShape(el.parent));
+    for (const el of file.template.elements) for (const a of el.attributes) if (a.value !== true) attribute(a.name, a.value, { component: el.component ? pascal(el.tag).split('.')[0] : undefined, shapeOnly: inShape(el) });
     for (const s of file.template.styles) out.push(...declarationValues(s.root, { file, origin: s.origin, sass: s.sass, source: 'css' }));
   }
   return out;
@@ -372,13 +480,14 @@ function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<stri
     }
     if (p.type !== 'ObjectProperty') continue;
     const value = unwrap(p.value as Node);
-    if (p.computed) {
+    const computedKey = p.computed ? staticKey(p.key) : undefined;
+    if (p.computed && computedKey === undefined) {
       // A selector built at runtime ([`&.${classes.head}`]) holds a nested rule; any other computed key sets a property chosen at runtime.
       if (value.type === 'ObjectExpression') nested(value, kind);
       else if (!kind.sx) out.push(at(p.key, { property: 'style', value: null, lead: `\`[${source(file, p.key)}]\` sets a property chosen at runtime`, source: kind.source, definesCustomProperty: false, wholeObject: true }));
       continue;
     }
-    const key = p.key.type === 'Identifier' ? p.key.name : p.key.type === 'StringLiteral' ? p.key.value : null;
+    const key = computedKey ?? (p.key.type === 'Identifier' ? p.key.name : p.key.type === 'StringLiteral' ? p.key.value : null);
     if (!key) continue;
     // An object is a nested rule (selector, media query, keyframe step), except under an sx property, where it holds breakpoints.
     if (value.type === 'ObjectExpression' && !(kind.sx && !SELECTOR_CHARS.test(key))) {
@@ -409,6 +518,19 @@ function objectStyles(file: ParsedFile, obj: ObjectExpression, objects: Map<stri
     }
   }
   return out;
+}
+
+/**
+ * The key a computed property names when it can be read: a string (`['--card-color' as any]`), or for a template with a
+ * static custom-property prefix (`[`--tone-${k}`]`) that family, as `--tone-*`. Undefined when chosen at runtime.
+ */
+function staticKey(k: Node): string | undefined {
+  const n = unwrap(k);
+  if (n.type === 'StringLiteral') return n.value;
+  if (n.type !== 'TemplateLiteral') return undefined;
+  const head = n.quasis[0]?.value.cooked ?? '';
+  if (!n.expressions.length) return head;
+  return /^--[\w-]+$/.test(head) ? `${head}*` : undefined;
 }
 
 /** What a function passed to a style call returns: the concise body, or every `return` of its block (not of nested functions). */
@@ -457,18 +579,19 @@ interface ClassPiece {
 function classPieces(n: Node, strings: Map<string, Node>, objects: Map<string, ObjectExpression>, seen: Set<Node>): ClassPiece[] {
   const pieces = (x: Node) => classPieces(x, strings, objects, seen);
   return branches(n).flatMap((b): ClassPiece[] => {
+    // Each string is read once, however many ways reach it (a cva() option is also a className key).
+    if ((b.type === 'StringLiteral' || b.type === 'TemplateLiteral') && seen.has(b)) return [];
+    if (b.type === 'StringLiteral' || b.type === 'TemplateLiteral') seen.add(b);
     if (b.type === 'StringLiteral') return [{ text: b.value, line: lineOf(b), column: (b.loc?.start.column ?? 0) + 2 }];
     if (b.type === 'TemplateLiteral') {
       return [...b.quasis.map((q) => ({ text: q.value.cooked ?? '', line: lineOf(q), column: (q.loc?.start.column ?? 0) + 1 })), ...b.expressions.flatMap((e) => pieces(e as Node))];
     }
     if (b.type === 'Identifier') {
       const init = strings.get(b.name);
-      if (!init || seen.has(init)) return [];
-      seen.add(init);
-      return pieces(init);
+      return init ? pieces(init) : [];
     }
     // A lookup into a same-file class map (tones[tone]): its entries, read once where they are written.
-    if (isLookup(b, objects)) return lookupValues(b, objects).flatMap((v) => (seen.has(v) ? [] : (seen.add(v), pieces(v))));
+    if (isLookup(b, objects)) return lookupValues(b, objects).flatMap(pieces);
     // ['a', on && 'b'].join(' ')
     if (b.type === 'CallExpression' && b.callee.type === 'MemberExpression' && !b.callee.computed && b.callee.property.type === 'Identifier' && b.callee.property.name === 'join' && b.callee.object.type === 'ArrayExpression') return pieces(b.callee.object);
     if (b.type === 'ArrayExpression') return b.elements.flatMap((e) => (e && e.type !== 'SpreadElement' ? pieces(e) : []));

@@ -12,7 +12,7 @@ Question 4 of the brief: when a new or modified pattern appears, is it justified
 - Each component's fingerprint is the set of what it renders:
   - `ds:<Component>`, resolved through imports from the policy's design-system import sources, including aliased and namespace imports;
   - `component:<Name>`;
-  - `html:<element>`, ignoring structureless elements (`div`, `span`, `p`).
+  - `html:<element>`, ignoring structureless elements (`div`, `span`, `p`; amended 2026-10-12 to include inline text elements such as `bdi` and inline SVG drawing such as `svg` and `path`, which made unrelated components look alike in Excalidraw and VitePress).
 - References are the policy's reference patterns plus components in unchanged, non-design-system files.
 - Classification of each changed component:
   - Existed before (read from the merge base): **established** if its fingerprint is unchanged, **modified** otherwise.

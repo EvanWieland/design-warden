@@ -24,6 +24,7 @@ Blocking a pull request for violations it did not introduce makes a gate unadopt
 
 - Legacy violations appear as pre-existing (informational) and never block unrelated work.
 - Renames (amended 2026-10-11): a renamed file keeps the lines its diff marks. Without hunks it changes no lines only if its content is identical byte for byte (the blob ids are compared). git's similarity score ignores line order, so a 100% score is not trusted. Findings in a file renamed from a path that a rule did not cover are new for that rule, so two pull requests cannot move unscanned code into scope as pre-existing.
+- Element spans (amended 2026-10-12): `raw-element` and `component-props` findings span the element's opening tag, not its children, so editing a child no longer makes an untouched element a new finding (a VitePress pull request was blocked four times that way). In Svelte a missing required prop spans the component's whole element, because a snippet in its content can pass it. A deleted prop still lands inside the span; deleting an element's first child marks the line before it, the opening tag, so that edit still brings the element's findings into scope.
 - `--policy-ref` protects only if the workflow file itself is protected, by CODEOWNERS or rulesets, because on `pull_request` the PR controls the workflow. This is documented in SECURITY.md.
 
 ## Alternatives considered

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { analyzeSource } from '../src/index.ts';
 import { parseDtcgTokens } from '../src/tokens.ts';
-import { componentDefinitions, importsOf, jsxUsages, makeDsMatcher } from '../src/jsx.ts';
+import { componentDefinitions, importsOf, jsxUsages, makeComponentAt, makeDsMatcher } from '../src/jsx.ts';
 import { parseFile } from '../src/parse.ts';
 import { cleanup, makeProject, TEST_POLICY } from './helpers.ts';
 
@@ -439,7 +439,7 @@ describe('Vue single-file components', () => {
   it('is one component named after the file, with template elements resolved through the script imports', () => {
     const file = parseFile('src/app/OrderCard.vue', VUE);
     expect([file.kind, file.error]).toEqual(['vue', undefined]);
-    const usages = jsxUsages(file, importsOf(file, makeDsMatcher(['src/ds'])));
+    const usages = jsxUsages(file, importsOf(file, makeDsMatcher(['src/ds']), makeComponentAt([])));
     expect(componentDefinitions(file, usages)).toEqual([expect.objectContaining({ name: 'OrderCard', line: 1, endLine: 11 })]);
     expect(usages.map((u) => u.resolved)).toEqual(expect.arrayContaining([{ kind: 'design-system', component: 'Badge' }, { kind: 'intrinsic', element: 'button' }]));
     const table = usages.find((u) => u.resolved.kind === 'design-system' && u.resolved.component === 'DataTable')!;
@@ -618,7 +618,7 @@ describe('Svelte components', () => {
   it('is one component named after the file, spanning the markup', () => {
     const file = parseFile('src/app/OrderCard.svelte', SVELTE);
     expect([file.kind, file.error]).toEqual(['svelte', undefined]);
-    const usages = jsxUsages(file, importsOf(file, makeDsMatcher(['src/ds'])));
+    const usages = jsxUsages(file, importsOf(file, makeDsMatcher(['src/ds']), makeComponentAt([])));
     expect(componentDefinitions(file, usages)).toEqual([expect.objectContaining({ name: 'OrderCard', line: 6, endLine: 14 })]);
     expect(usages.find((u) => u.resolved.kind === 'design-system' && u.resolved.component === 'DataTable')?.attributes.has('rows')).toBe(true);
   });
@@ -634,7 +634,7 @@ describe('token-usage', () => {
       '`--palette-blue` is an internal token; application code must use semantic tokens.',
       '`--color-actoin` is not a defined design token.',
     ]);
-    expect(d[0]!.suggestion).toBe('Use var(--color-action), which resolve to the same value.');
+    expect(d[0]!.suggestion).toBe('Use var(--color-action), which resolves to the same value.');
     expect(d[1]!.suggestion).toBe('Did you mean var(--color-action)?');
   });
 });

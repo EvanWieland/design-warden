@@ -33,6 +33,8 @@ describe('usage and policy errors (exit 2)', () => {
     [['check', '--policy', 'does/not/exist.json'], /cannot read policy file/],
     [['check', '--format', 'xml'], /--format must be one of/],
     [['check', '--bogus'], /Unknown option/],
+    [['check', '--base', '-h'], /ambiguous/], // -h as an option's value is not a request for help
+
   ])('%j exits 2', async (argv, message) => {
     const r = await cli(...argv);
     expect(r.code).toBe(2);
@@ -57,6 +59,13 @@ describe('usage and policy errors (exit 2)', () => {
 });
 
 describe('outcomes and exit codes', () => {
+  // Excalidraw trial: a full scan printed 4186 lines with no totals.
+  it('totals a long list of findings by rule', async () => {
+    const css = Array.from({ length: 11 }, (_, i) => `.c${i} { color: #12345${i % 10}; }`).join('\n');
+    const r = await cli('check', '--policy', project({ ...CLEAN, 'src/app/many.css': `${css}\n.p { padding: 13px; }` }).policyPath);
+    expect(r.out).toContain('By rule: color/no-literal 11 · spacing/scale 1');
+  });
+
   it('passes compliant code (exit 0)', async () => {
     const r = await cli('check', '--policy', project(CLEAN).policyPath);
     expect(r.code).toBe(0);
@@ -234,6 +243,25 @@ describe('policy commands', () => {
     expect(t.code).toBe(1);
     expect(t.out).toContain('2/3 examples behave as declared');
     expect(t.out).toMatch(/FAIL color\/no-literal \[expect fail\] src\/app\/z\.css/);
+  });
+
+  // shadcn/ui trial: the token file's own `!important` made a passing example fail.
+  it('judges an example by its own findings, not by findings in the token sources', async () => {
+    const tokens = ':root { --color-text: #0f172a !important; }';
+    const policy = {
+      ...TEST_POLICY,
+      rules: TEST_POLICY.rules.map((r) => (r.id === 'styles/no-important' ? { ...r, scope: {}, examples: [{ file: 'src/app/ok.css', code: '.a { color: var(--color-text); }', expect: 'pass' }] } : r)),
+    };
+    const { policyPath } = project({ ...CLEAN, 'src/ds/tokens.css': tokens }, policy);
+    const t = await cli('policy', 'test', '--policy', policyPath);
+    expect(t.out).toContain('1/1 examples behave as declared');
+    expect(t.code).toBe(0);
+  });
+
+  it('prints help after a command too', async () => {
+    const r = await cli('check', '--help');
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('check options:');
   });
 
   it('prints the JSON schema', async () => {

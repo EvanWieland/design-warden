@@ -15,7 +15,8 @@ export type SemanticMode = 'off' | 'replay' | 'anthropic';
 
 export interface RunOptions {
   visual?: boolean;
-  semantic?: SemanticMode;
+  /** A mode, or a provider used as it is (a local model for `pnpm eval:semantic`). */
+  semantic?: SemanticMode | SemanticProvider;
   onProgress?: (e: ProgressEvent | { engine: 'harness'; status: 'started' | 'completed'; detail?: string; elapsedMs: number }) => void;
 }
 
@@ -74,7 +75,7 @@ export async function runScenario(id: string, opts: RunOptions = {}): Promise<Sc
     base: 'main',
     policyRef: scenario.policyFromBase ? 'main' : undefined,
     visual,
-    semantic: semanticFor(scenario, opts.semantic ?? 'off'),
+    semantic: typeof opts.semantic === 'object' ? { provider: opts.semantic, timeoutMs: 600_000 } : semanticFor(scenario, opts.semantic ?? 'off'),
     today: '2026-10-10',
     onProgress: opts.onProgress,
   });

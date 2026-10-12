@@ -130,8 +130,10 @@ async function check(argv: string[], out: (s: string) => void, err: (s: string) 
       only: { type: 'string' },
       today: { type: 'string' },
       verbose: { type: 'boolean', default: false },
+      help: { type: 'boolean', short: 'h' },
     },
   });
+  if (v.help) return (out(HELP), 0);
   const format = oneOf(v.format, ['terminal', 'json', 'markdown', 'github', 'sarif', 'gitlab'], '--format');
   const failOn = oneOf(v['fail-on'], ['fail', 'review'], '--fail-on');
   const scope = v.scope === undefined ? undefined : (oneOf(v.scope, ['changed-lines', 'changed-files', 'all'], '--scope') as ChangeScope);
@@ -212,8 +214,9 @@ async function capture(argv: string[], out: (s: string) => void): Promise<number
   const { values: v } = parseArgs({
     args: argv,
     strict: true,
-    options: { policy: { type: 'string', default: 'design-warden.policy.json' }, url: { type: 'string' }, serve: { type: 'string' }, out: { type: 'string' } },
+    options: { policy: { type: 'string', default: 'design-warden.policy.json' }, url: { type: 'string' }, serve: { type: 'string' }, out: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
   });
+  if (v.help) return (out(HELP), 0);
   if (!v.out) throw new UsageError('capture needs --out <dir>');
   if (Boolean(v.url) === Boolean(v.serve)) throw new UsageError('capture needs exactly one of --url or --serve');
   // Otherwise every state fails in the browser, which reads like an app that is down.
@@ -247,7 +250,8 @@ async function capture(argv: string[], out: (s: string) => void): Promise<number
 
 async function policy(argv: string[], out: (s: string) => void): Promise<number> {
   const [sub, ...rest] = argv;
-  const { values: v } = parseArgs({ args: rest, strict: true, options: { policy: { type: 'string', default: 'design-warden.policy.json' } } });
+  const { values: v } = parseArgs({ args: rest, strict: true, options: { policy: { type: 'string', default: 'design-warden.policy.json' }, help: { type: 'boolean', short: 'h' } } });
+  if (v.help || sub === '--help' || sub === '-h') return (out(HELP), 0);
   if (sub === 'schema') {
     out(JSON.stringify(policyJsonSchema(), null, 2));
     return 0;

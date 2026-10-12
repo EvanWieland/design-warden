@@ -11,12 +11,12 @@ Common behaviour:
 
 The style checks (`no-hardcoded-color`, `spacing-scale`, `token-usage`) also read Tailwind classes with **arbitrary values**, as the CSS they produce. Findings point at the class: "`13px` in class `p-[13px]` is not on the `--space-*` scale".
 
-- **Where:** literal `className` strings (also in `{…}`, every branch of `?:`/`&&`/`??`, and the static parts of template literals), the arguments of `clsx`, `cn`, `classnames`, `classNames`, `cx`, `twMerge` and `twJoin` (strings, arrays and object keys), same-file `const` strings used as classes (`className={base}`, reported where the constant is written), lookups into same-file class maps (`tones[tone]`, reported where the map is written), `[…].join(' ')`, props named `*ClassName` (`labelClassName`), and the base, slots, variant options and compound-variant `class` of `cva()` and `tv()` (not variant names or defaults), in TS/TSX/JS files and in Vue and Svelte class attributes.
-- **What:** `p-[13px]` (padding), `text-[#e11d48]` (color), `text-[15px]` (font size), `bg-[…]`, `border-[…]`, `shadow-[0_1px_2px_#000]`, gap, margin and the other spacing and color utilities, arbitrary properties (`[padding:13px]`) and the v4 variable shorthand (`p-(--space-3)` is `var(--space-3)`). Variants (`md:hover:`, `data-[state=open]:`), negative values (`-mt-[8px]`), opacity (`/50`), the `!` modifier and type hints (`text-[length:…]`) are understood.
+- **Where:** literal `className` strings (also in `{…}`, every branch of `?:`/`&&`/`??`, and the static parts of template literals), the arguments of `clsx`, `cn`, `classnames`, `classNames`, `cx`, `twMerge` and `twJoin` (strings, arrays and object keys), same-file `const` strings used as classes (`className={base}`, reported where the constant is written), lookups into same-file class maps (`tones[tone]`, reported where the map is written), `[…].join(' ')`, props named `*ClassName` (`labelClassName`) and object keys named `className` or `*ClassName` (`toastOptions={{ className: … }}`), and the base, slots, variant options and compound-variant `class` of `cva()` and `tv()` (not variant names or defaults), in TS/TSX/JS files and in Vue and Svelte class attributes.
+- **What:** `p-[13px]` (padding), `text-[#e11d48]` (color), `text-[15px]` (font size), `bg-[…]`, `border-[…]`, `shadow-[0_1px_2px_#000]`, gap, margin and the other spacing and color utilities, arbitrary properties (`[padding:13px]`) and the v4 variable shorthand (`p-(--space-3)` is `var(--space-3)`). Variants (`md:hover:`, `data-[state=open]:`), negative values (`-mt-[8px]`), opacity (`/50`), the `!` modifier, type hints (`text-[length:…]`) and math without spaces (`p-[calc(13px+2px)]`, spaced as Tailwind does) are understood.
 - **Allowed:** values that use tokens, such as `p-[var(--space-3)]`.
-- **Default-palette color classes** (`bg-red-500`, `hover:text-white`, `border-t-slate-200/50`, `ring-offset-blue-600`) are read as the theme variable Tailwind v4 compiles them to, `var(--color-red-500)`, and `token-usage` judges that reference like any other: "Class `bg-red-500` uses `--color-red-500`, which is not a defined design token". If the token sources define the palette as internal tokens, the finding names the semantic class with the same value ("Use `hover:text-danger` (var(--color-danger))"). This applies only in a project that uses Tailwind (a `tailwindcss` dependency in its package.json, or a stylesheet with `@import "tailwindcss"`, `@tailwind` or `@theme`), so Bootstrap's `text-white` is left alone, and never to a class the project defines in its own stylesheets. A project that uses the default palette on purpose commits a copy of Tailwind's theme (or just its colors, inside `@theme { … }`) and lists it as a token source with an allowed `--color-` prefix. Token sources must be files in the project: CI does not install the project's dependencies, so `node_modules/tailwindcss/theme.css` would be missing there.
+- **Default-palette color classes** (`bg-red-500`, `hover:text-white`, `border-t-slate-200/50`, `ring-offset-blue-600`; the palette of Tailwind 4.3, including `taupe`, `mauve`, `mist` and `olive`) are read as the theme variable Tailwind v4 compiles them to, `var(--color-red-500)`, and `token-usage` judges that reference like any other: "Class `bg-red-500` uses `--color-red-500`, which is not a defined design token". If the token sources define the palette as internal tokens, the finding names the semantic class with the same value ("Use `hover:text-danger` (var(--color-danger))"). This applies only in a project that uses Tailwind (a `tailwindcss` dependency in its package.json, or a stylesheet with `@import "tailwindcss"`, `@tailwind` or `@theme`), so Bootstrap's `text-white` is left alone, and never to a class the project defines in its own stylesheets. A project that uses the default palette on purpose commits a copy of Tailwind's theme (or just its colors, inside `@theme { … }`) and lists it as a token source with an allowed `--color-` prefix. Token sources must be files in the project: CI does not install the project's dependencies, so `node_modules/tailwindcss/theme.css` would be missing there.
 - **Not judged:** other theme classes such as `p-4`, `text-sm` or `bg-primary`. Sizes and keywords are not colors, and a project's own color names are its tokens. Whether a spacing class matches the design system depends on the project's Tailwind config, which Design Warden does not read.
-- **Not read:** class strings built at runtime, helpers called as members (`utils.cn(…)`), the v3.3 `[--var]` shorthand (`bg-[--x]`; the v4 `(--x)` form is read), `@apply` in CSS, and the `!` modifier as `!important`.
+- **Not read:** class strings built at runtime or returned by helper functions (`cn(tone())`), helpers called as members (`utils.cn(…)`), the v3.3 `[--var]` shorthand (`bg-[--x]`; the v4 `(--x)` form is read), `@apply` in CSS (except that a custom property it defines, `@apply [--cell-radius:…]`, counts as defined for `token-usage`), and the `!` modifier as `!important`.
 
 ### CSS-in-JS templates
 
@@ -55,26 +55,28 @@ Object styles are read like inline style objects: `css({…})`, `styled.div({…
 
 `.scss` files are parsed with postcss-scss and checked like CSS: literal colors, lengths and token references, and `!important`. Add `scss` to `project.include` (for example `src/**/*.{ts,tsx,css,scss}`).
 
-- **Variables:** a value that uses a `$variable` or `#{…}` interpolation is resolved only by the Sass compiler, so it is **insufficient evidence** for the checks that cover that property ("`margin` is computed from `$gap`"). This includes functions such as `darken($brand, 10%)`.
+- **Variables:** a value that uses a `$variable` or `#{…}` interpolation is resolved only by the Sass compiler, so it is **insufficient evidence** for the checks that cover that property ("`margin` is computed from `$gap`"). This includes functions such as `darken($brand, 10%)`. A keyword argument is an argument, not a variable: `color.adjust(#ffffff, $alpha: -0.75)` is a hardcoded color.
 - A variable defined with a literal (`$brand: #db2777;`) is checked like a custom property outside the token sources. A variable built from other variables is judged where it is used.
 - **Mixins:** `@include name(arguments)` without a content block is insufficient evidence once per style rule, because only the mixin's definition shows what it sets; that definition is checked where it lives. An `@include` without arguments (with or without empty parentheses), or with a content block (`@include breakpoint(md) { … }`, whose block is checked), is not reported.
-- **Not read:** property names built with `#{…}`, `@extend`, and token sources written as Sass variables (use CSS custom properties or DTCG).
+- **Not read:** property names built with `#{…}`, `@extend`, and tokens written as Sass variables. A token source may be an `.scss` file of CSS custom properties (`//` comments are fine); Sass `$variables` in it are not tokens.
 
 ## Source checks
 
 ### `no-hardcoded-color`
 
-Reports literal colors: hex, `rgb()`/`hsl()`/`hwb()`/`lab()`/`lch()`/`oklab()`/`oklch()`/`color()`, and named colors in color-related properties. It looks in:
+Reports literal colors: hex, `rgb()`/`hsl()`/`hwb()`/`lab()`/`lch()`/`oklab()`/`oklch()`/`color()`, and named colors in color properties (any `*-color`, custom properties and vendor prefixes included; `background`, `border` and its side shorthands, `outline`, `fill`, `stroke`, shadows, `filter` and Tailwind's `drop-shadow`; not widths, radii or dash arrays). It looks in:
 - CSS declarations, including custom properties defined outside the token sources and `var()` fallbacks;
-- inline `style={{…}}` objects, also behind a type cast (`{…} as CSSProperties`) or defined as a constant object in the same file (`style={cell}`; reported where the constant is defined);
-- color-like JSX props (`color`, `fill`, `stroke`, `background…`), for example `<path fill="#000">`.
+- inline `style={{…}}` objects, also behind a type cast (`{…} as CSSProperties`), defined as a constant object in the same file (`style={cell}`; reported where the constant is defined), or chosen by a condition (`busy ? { … } : undefined`, each branch read). Custom property keys written with a cast (`['--card-color' as any]`) are read, and a template key with a static prefix (`` [`--tone-${k}`] ``) is reported as `--tone-*`;
+- color props (`color`, `fill`, `stroke`, `background`, `bg`, `bgcolor`, `*Color`, `*-color`), for example `<path fill="#000">`, and Svelte style props (`<Slider --track-color="black">`), which are inline styles;
+- styles set from script, `el.style.setProperty('--brand', '#39ff14')` and `el.style.color = 'red'` (literal strings only, as for color props). A custom property set this way counts as defined for `token-usage`, so its value is judged where it is set.
 
 Every literal branch of a conditional or fallback (`?:`, `??`, `||`, `&&`) is checked.
 
+- **Not reported:** a color function whose origin or a color channel comes from a token (`rgb(from var(--x) r g b / 50%)`, `hsl(var(--h) 50% 40%)`, `rgba(var(--rgb), 0.5)`; one whose only `var()` is the alpha, `rgb(0 0 0 / var(--a))`, is still hardcoded); a named color passed to one of the project's own or the design system's components (`<Card color="lime">`), which may be a variant name (hex values and color functions are still reported, and a component from another package, such as an icon, takes a CSS color, as does `motion.path`); and fills inside `<clipPath>` and `<mask>`, which only shape what is drawn.
 - **Insufficient evidence:** an inline style color computed at runtime (`style={{ borderColor: accent }}`, a string constant), or a style object built elsewhere (`style={BY_STATUS[s]}`). A runtime value in a color prop is not reported.
 - **Suggestion:** the nearest allowed token by perceptual distance (OKLab).
   - An exact value match is preferred.
-  - Otherwise, the closest token named for the property's role (`text` for `color`, `bg` for `background`, `border` for borders).
+  - Otherwise, the closest token named for the property's role (`text` for `color`, `bg` for `background`, `border` for borders), then a token named for no role, and only then one named for another role: a background is not offered `--color-danger-text` when a neutral token has the value.
   - No suggestion when nothing is close, for translucent colors (no opaque token equals them), or when the declaration redefines that token.
 - **Options:** `allow` (default `transparent`, `currentcolor`, `inherit`, `initial`, `unset`, `none`); `tokenPrefix` (default `--color-`).
 - **Not detected here:** Tailwind default-palette classes (`text-red-500`) are token references, judged by `token-usage` (see above). CSS-in-JS templates and object styles, SCSS and Tailwind arbitrary values are read.
@@ -86,7 +88,7 @@ Reports literals in the configured units (default `px`, `rem` and `em`) in margi
 - `0`, `auto` and percentages are allowed. Unitless numbers in `calc()` are multipliers or divisors (`calc(var(--space-3) * -1)`), not lengths, and are allowed.
 - A hardcoded fallback in `var(--space-4, 16px)` is reported, with the suggestion to remove it when the token is defined.
 - Insufficient evidence for computed inline values and style objects built elsewhere.
-- **Suggestion:** the nearest `--space-*` step, or nothing if no step is within 25% (min 4px). A value equal to a step is reported as "is hardcoded; the `--space-*` scale has a token for it".
+- **Suggestion:** the nearest `--space-*` step, or nothing if the nearest step is a third of the value or more away (min 1px): 8px is not offered a 4px step. A value equal to a step is reported as "is hardcoded; the `--space-*` scale has a token for it".
 - **Options:** `properties`, `allow`, `tokenPrefix` (default `--space-`), `units` (any of `px`, `rem`, `em`; default all three). Messages name the scale by its prefix. Suggestions convert `rem` and `em` at 16px.
 - **Other length scales:** point the same check at other properties. The demo's `typography/scale` rule checks font sizes:
 
@@ -98,9 +100,11 @@ Reports literals in the configured units (default `px`, `rem` and `em`) in margi
 
 ### `token-usage`
 
-Every `var(--x)` must be a token defined in the token sources with an allowed prefix, or a custom property defined in the same file. A token redefined outside the token sources (`.x { --color-text-primary: #111827; }`) is a violation.
+Every `var(--x)` must be a token defined in the token sources with an allowed prefix (or a name an SCSS token source generates, `--radius-#{$name}`), or a custom property the project defines: in any CSS or SCSS file, an inline style or style-object key, a Tailwind arbitrary property (`[--x:…]`, also inside `@apply`), `@property`, `el.style.setProperty('--x', …)`, or CSS text in a template literal. Definitions are read from every file in `project.include`, stories and tests included, and are not scoped to a selector or a component. A token redefined outside the token sources (`.x { --color-text-primary: #111827; }`) is a violation.
 
-- Primitive tokens (for example `--palette-*`) are reported with the semantic tokens that resolve to the same value.
+- **Not reported:** a reference with a fallback whose name has no token prefix (`var(--layout-top-height, 0px)`, a hook that something else may set); a name the project builds at runtime from a static name family ending in `-`, outside the token prefixes (`` `--chart-${key}: …` ``, `` [`--tone-${k}`] ``, `` setProperty(`--x-${k}`) ``; `` `--c${k}` `` excuses nothing); and the names the rule lists as `external`. A name with a token prefix claims to be a token, so a fallback does not excuse it (`var(--radius-card, 12px)` is reported), and a runtime family inside a token prefix (`--color-${key}`) only turns it into **insufficient evidence** naming the file that builds the family. Neither excuses a name one or two edits from a token: that is a likely typo, and still reported. A Tailwind palette class is judged as written. A runtime family applies project-wide, not only where its component is used.
+- **Options:** `external`: custom properties set outside the project's code, as prefixes or whole names, for UI libraries that set them at runtime. For a shadcn/ui project, for example: `["--radix-", "--anchor-", "--available-", "--transform-origin", "--trigger-", "--popup-", "--drawer-", "--toast-", "--cmdk-"]`.
+- Primitive tokens (for example `--palette-*`) are reported with the semantic tokens that resolve to the same value in every theme of the token sources, through aliases: one that matches only in the default theme would change dark mode.
 - Unknown tokens get a "did you mean" suggestion (edit distance ≤ 3).
 - A Tailwind default-palette class is reported as the token it references, naming the class. A suggestion names the replacement class too, keeping its variants and opacity (`hover:text-danger/80`).
 - Deprecated tokens (DTCG `$deprecated`, see [policy-authoring.md](policy-authoring.md#token-sources)) are reported with their reason. Suggestions in every check skip deprecated tokens.
@@ -123,6 +127,8 @@ Reports raw HTML elements, and ARIA-role imitations, that a registry component `
 - `replaces` entries are selectors: `tag`, `tag[attr=value]` or `[attr=value]`. In the demo, `Button` replaces `button` and `[role=button]`; `Checkbox` replaces `input[type=checkbox]` and `[role=checkbox]`; `TextField` replaces `input` and `textarea`.
 - The most specific selector wins. So `<div role="button">` is reported as "imitates a control; use `<Button>`".
 - A bare `input` selector matches only text-like inputs: no `type`, or `text`, `email`, `search`, `number`, `tel`, `url`, `password`. `type="hidden"` is never reported. A computed `type={…}` is insufficient evidence.
+- An element handed to a registry component that replaces raw elements, as a `render={<a />}` prop or the child of an `asChild` (Vue `as-child`) component (`<Button asChild><a href>`), is styled by that component and is not reported. Handed to any other component, including a design-system trigger that only adds behaviour (Radix `DialogTrigger`), it is.
+- Findings span the element's opening tag, not its children: changing a child does not make an untouched element new in a pull request. Deleting its first child still does, because a deletion marks the line before it (ADR 0006).
 - Use the rule's `scope.exclude` for the design system itself.
 - **Options:** `elements` (restrict to a subset).
 
@@ -130,14 +136,15 @@ Reports raw HTML elements, and ARIA-role imitations, that a registry component `
 
 Checks call sites of design-system components against the registry's prop contracts.
 
-- Components are resolved through imports from the policy's `importSources`, including aliased (`import { Badge as Tag }`) and namespace (`DS.Badge`) imports, in JSX and in Vue and Svelte markup.
+- Components are resolved through imports from the policy's `importSources`, including aliased (`import { Badge as Tag }`) and namespace (`DS.Badge`) imports, in JSX and in Vue and Svelte markup. A default import resolves by its file to the registered component whatever its local name (`import Btn from './Button'` is `Button`, also written `./Button.js`), and a member of a design-system import is a part of a compound component (`<Card.Header>`, checked against a registry entry named `Card.Header` if there is one).
+- Findings span the opening tag, as for `raw-element`. In Svelte a missing required prop spans the component's whole element, because a snippet in its content can pass it.
 - A missing required prop is a violation, or insufficient evidence when spread props could supply it.
 - A literal value outside `allowed` is a violation. For conditionals, each literal branch is checked. Runtime values are not judged.
 - **Options:** `components` (restrict).
 
 ### `duplicate-component` (heuristic)
 
-Reports a component defined outside the design system whose name ends in a registered component's name or alias (its head noun), and that does not render that component.
+Reports a component defined outside the design system whose name ends in a registered component's name or alias (its head noun), and that does not render that component: directly, a part of it (`<Card.Header>`), a design-system component named like it (`LinkButton` rendering `<IconButton>`), or through another component of the same file.
 - Example: `StatusPill` ends in Badge's alias `pill`; a `PaidBadge` that renders `<Badge>` is fine; `NoticeBoard` is not matched, because its head noun is "board".
 - Verdict `probable-violation`, origin `heuristic`, so at most review.
 - **Known false positives:** names whose head noun is an alias by coincidence (`PivotTable` matches DataTable's alias `table`); see the benchmark.
@@ -157,7 +164,7 @@ Classifies each changed component definition (PascalCase function rendering JSX)
   - composition: Jaccard over the set of rendered design-system components, local components and semantic HTML elements;
   - shape: Zhang-Shasha tree edit distance over how those elements nest, as 1 − edits / size of the larger tree.
   So the same components in a different layout, or a rearranged existing component, are not `established`.
-- Structureless `div`, `span` and `p` are ignored in both signals (their children move up), and adjacent identical subtrees count once, so a wrapper or one more control of the same kind does not change the shape. Props are ignored.
+- Structureless elements are ignored in both signals (their children move up): `div`, `span`, `p`, inline text elements (including `bdi`) and inline SVG drawing (`svg`, `path`, `g`, …), because an icon is not a layout, so two components that share only inline icons do not look alike. Adjacent identical subtrees count once, so a wrapper or one more control of the same kind does not change the shape. Props are ignored.
 - Trees over 300 nodes are compared by composition only, because the edit distance's cost grows with the product of the tree sizes. For such large components a layout change alone is not seen.
 - A reference pattern whose file is changed in the same change set is read as it was in the base, so editing a reference cannot vouch for new code; a reference file added by the change is not used.
 - Records always appear in the report.
@@ -168,7 +175,7 @@ Classifies each changed component definition (PascalCase function rendering JSX)
 ### `shared-change` (needs `--base`)
 
 For changed files in the rule's scope (the design system):
-- **Token files:** compares *resolved* values of base and head, so changing a primitive reports every semantic token built on it. Each changed token is listed with before and after values and its `var()` usages across the project. Removed tokens that are still used are called out.
+- **Token files:** compares *resolved* values of base and head, so changing a primitive reports every semantic token built on it. Every token is compared in every theme and breakpoint, through aliases: a changed `.dark { --palette-bg }` lists `--palette-bg` and each token built on it, with the selector and the values that theme gives before and after. Each changed token is listed with its `var()` usages across the project. A used token with no definition left is called out as breaking; removing one theme's override is not.
 - **Component files:** maps the file to registry components (same source, or a sibling with the same base name, such as `Button.css` → `Button.tsx`) and lists their JSX usages.
 
 Verdict `violation` of a rule that normally uses `enforcement: "review"`: the change is real and needs owner review, not a failure. **Options:** `maxUsagesListed` (25).

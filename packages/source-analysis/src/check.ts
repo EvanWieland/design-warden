@@ -1,8 +1,8 @@
 import type { CheckDefinition, ComponentSpec, ChangeSet, FindingDraft, Policy, ProvenanceRecord } from '@design-warden/core';
 import type { z } from 'zod';
-import type { ComponentDefinition, DsMatcher, JsxUsage } from './jsx.ts';
+import type { ComponentDefinition, ImportBinding, JsxUsage } from './jsx.ts';
 import { snippetAt, type ParsedFile } from './parse.ts';
-import type { StyleRule } from './style-values.ts';
+import type { CustomProperties, StyleRule } from './style-values.ts';
 import type { TokenSet } from './tokens.ts';
 
 /** Everything checks may read about the project. Built once per run by `analyzeSource`. */
@@ -12,9 +12,10 @@ export interface SourceProject {
   tokenFiles: Set<string>;
   files: Map<string, ParsedFile>;
   componentsByName: Map<string, ComponentSpec>;
-  isDs: DsMatcher;
   inDesignSystem(file: string): boolean;
   usages(file: ParsedFile): JsxUsage[];
+  /** The file's imports, resolved as `usages` resolves them (design system, registry component). */
+  imports(file: ParsedFile): ImportBinding[];
   /** Resolves any version of a file (a base version too) the way `usages` does, imports and global registrations included; not cached. */
   usagesOf(file: ParsedFile): JsxUsage[];
   /** The stylesheet rules whose selectors use a class: the project's stylesheets and component style blocks. */
@@ -22,6 +23,8 @@ export interface SourceProject {
   /** Whether the project uses Tailwind: a `tailwindcss` dependency, or a stylesheet that imports it or has `@tailwind` or `@theme`. */
   usesTailwind(): boolean;
   definitions(file: ParsedFile): ComponentDefinition[];
+  /** Custom properties defined anywhere in the project (CSS, inline styles, classes, `style.setProperty`), and the static prefixes of names built at runtime. */
+  customProperties(): CustomProperties;
   changes?: ChangeSet;
   readBase?: (file: string) => Promise<string | null>;
   /** Computed for changed component definitions when a change set is present. */

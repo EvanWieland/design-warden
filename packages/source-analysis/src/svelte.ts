@@ -2,7 +2,7 @@
 import type { Node } from '@babel/types';
 import { createRequire } from 'node:module';
 import type { parse as SvelteParse } from 'svelte/compiler';
-import { container, expressionNode, identifierNode, keepRanges, positions, stringNode, styleBlock, type ParsedTemplate, type PositionOf, type TemplateElement } from './templates.ts';
+import { container, expressionNode, identifierNode, keepRanges, openTagEnd, positions, stringNode, styleBlock, type ParsedTemplate, type PositionOf, type TemplateElement } from './templates.ts';
 
 interface SNode {
   type: string;
@@ -56,6 +56,7 @@ export function parseSvelte(text: string): ParsedTemplate {
   const styles = content(ast.css).map(([s, e]) => styleBlock(text, pos, s, e, lang(ast.css!), comments));
 
   const elements: TemplateElement[] = [];
+  let markupEnd = 1; // last line of any element, for the span of the component the markup defines
   const visit = (n: SNode, parent: TemplateElement | undefined) => {
     if (n.type === 'Comment') comments.push({ text: (n as SText).data, line: pos(n.end).line });
     const kind = KIND[n.type];
@@ -67,8 +68,11 @@ export function parseSvelte(text: string): ParsedTemplate {
         const id = s.type === 'SnippetBlock' ? (s.expression as SNode & { name?: string }) : undefined;
         if (id?.name) attributes.push({ name: id.name, value: container(identifierNode(pos, id.name, id.start, id.end)) });
       }
-      e = { tag: String(n.name), component: kind === 'component', ...(kind === 'dynamic' && { dynamic: String(n.name) }), line: pos(n.start).line, endLine: pos(n.end).line, attributes, spread, parent };
+      // A component's content can pass props in Svelte 5 (snippets), so a missing prop spans the whole element.
+      const tagEnd = openTagEnd(text, (n.attributes as SAttr[]).at(-1)?.end ?? n.start + 1 + String(n.name).length, n.end);
+      e = { tag: String(n.name), component: kind === 'component', ...(kind === 'dynamic' && { dynamic: String(n.name) }), line: pos(n.start).line, endLine: pos(tagEnd).line, ...(kind === 'component' && { propsEndLine: pos(n.end).line }), attributes, spread, parent };
       elements.push(e);
+      markupEnd = Math.max(markupEnd, pos(n.end).line);
     }
     for (const key of FRAGMENTS) {
       const child = n[key];
@@ -78,7 +82,7 @@ export function parseSvelte(text: string): ParsedTemplate {
   };
   visit(ast.fragment, undefined);
   return {
-    parts: { line: elements[0]?.line ?? 1, endLine: Math.max(1, ...elements.map((e) => e.endLine)), elements, styles },
+    parts: { line: elements[0]?.line ?? 1, endLine: markupEnd, elements, styles },
     script: keepRanges(text, scripts.flatMap(content)),
     scriptJsx: false,
     comments,

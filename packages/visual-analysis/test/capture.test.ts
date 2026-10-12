@@ -47,6 +47,41 @@ beforeAll(async () => {
 });
 afterAll(() => server?.close());
 
+describe('serveStatic', () => {
+  // VitePress trial: /guide/getting-started got the home page, so its state timed out (a spurious review request).
+  it('serves clean URLs and folder indexes of static sites, and the app shell for other routes', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-clean-'));
+    fs.mkdirSync(path.join(dir, 'guide'));
+    fs.mkdirSync(path.join(dir, 'docs'));
+    fs.writeFileSync(path.join(dir, 'index.html'), 'home');
+    fs.writeFileSync(path.join(dir, 'guide', 'getting-started.html'), 'getting started');
+    fs.writeFileSync(path.join(dir, 'docs', 'index.html'), 'docs');
+    const s = await serveStatic(dir);
+    try {
+      const get = async (p: string) => (await fetch(`${s.url}${p}`)).text();
+      expect(await Promise.all(['/guide/getting-started', '/docs/', '/docs', '/orders/42'].map(get))).toEqual(['getting started', 'docs', 'docs', 'home']);
+    } finally {
+      await s.close();
+    }
+  });
+
+  it('refuses a clean-URL candidate that links outside the site', async () => {
+    // /sub/page does not exist, but sub/page.html does, through a folder link that leaves the site.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-link-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-secret-'));
+    fs.writeFileSync(path.join(dir, 'index.html'), 'home');
+    fs.writeFileSync(path.join(outside, 'page.html'), 'secret');
+    fs.symlinkSync(outside, path.join(dir, 'sub'), 'junction'); // a junction needs no extra rights on Windows
+    const s = await serveStatic(dir);
+    try {
+      const r = await fetch(`${s.url}/sub/page`);
+      expect([r.status, await r.text()]).toEqual([400, '']);
+    } finally {
+      await s.close();
+    }
+  });
+});
+
 describe('captureAll (real Chromium)', () => {
   it('produces byte-identical captures across runs, with frozen time and blocked external requests', async () => {
     const [a, b] = [fs.mkdtempSync(path.join(os.tmpdir(), 'dw-a-')), fs.mkdtempSync(path.join(os.tmpdir(), 'dw-b-'))];

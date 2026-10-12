@@ -235,6 +235,43 @@ describe('openAiCompatibleProvider', () => {
     await expect(provider().review(request, AbortSignal.timeout(2000))).rejects.toMatchObject({ kind });
   });
 
+  // The caller's signal is the only time limit: a slow local model may answer after fetch's 300 s headers timeout
+  // (checked outside the suite, PLAN.md 2026-10-12).
+  it('reports a request still waiting when the signal fires as a timeout', async () => {
+    handler = () => {}; // never answers
+    await expect(provider().review(request, AbortSignal.timeout(200))).rejects.toMatchObject({ kind: 'timeout' });
+    handler = (_req, _b, res) => res.writeHead(200).write('{"choices":'); // headers, then a body that never ends
+    await expect(provider().review(request, AbortSignal.timeout(200))).rejects.toMatchObject({ kind: 'timeout' });
+  });
+
+  // Security review (2026-10-12): http.request would send user:password as Basic auth, and the endpoint is printed in reports.
+  it('never sends or reports credentials written into the base URL', async () => {
+    let called = false;
+    handler = (_req, _b, res) => {
+      called = true;
+      res.end('{}');
+    };
+    const p = openAiCompatibleProvider({ baseUrl: `${baseUrl.replace('http://', 'http://user:secret@')}/v1`, model: 'x' });
+    expect(p.endpoint).not.toContain('secret');
+    await expect(p.review(request, AbortSignal.timeout(2000))).rejects.toMatchObject({ kind: 'auth' });
+    expect(called).toBe(false);
+  });
+
+  it('stops reading a response larger than 8 MB instead of exhausting memory', async () => {
+    handler = (_req, _b, res) => {
+      res.writeHead(200);
+      const chunk = 'x'.repeat(1 << 20);
+      for (let i = 0; i < 9; i++) res.write(chunk);
+      res.end();
+    };
+    await expect(provider().review(request, AbortSignal.timeout(10_000))).rejects.toMatchObject({ message: expect.stringMatching(/larger than 8 MB/) });
+  });
+
+  it('reports a body that is not JSON as an unknown error, not a crash', async () => {
+    handler = (_req, _b, res) => res.end('<html>proxy error</html>');
+    await expect(provider().review(request, AbortSignal.timeout(2000))).rejects.toMatchObject({ kind: 'unknown' });
+  });
+
   it('reports an unreachable endpoint as a network error', async () => {
     const down = openAiCompatibleProvider({ baseUrl: 'http://127.0.0.1:9/v1', model: 'x' });
     await expect(down.review(request, AbortSignal.timeout(5000))).rejects.toMatchObject({ kind: 'network' });
